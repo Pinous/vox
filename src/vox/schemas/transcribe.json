@@ -1,0 +1,78 @@
+{
+  "name": "transcribe",
+  "description": "Transcribe audio/video file or URL to text using MLX Whisper",
+  "arguments": {
+    "source": {
+      "type": "string",
+      "required": true,
+      "description": "URL (YouTube, Twitter, etc.) or local file path (.mp3, .mp4, .wav, .m4a, .flac, .ogg, .webm, .mkv, .avi, .mov, .aac, .wma, .opus, .ts)"
+    }
+  },
+  "options": {
+    "language": {
+      "type": "string",
+      "default": "auto",
+      "description": "ISO 639-1 language code (en, fr, es, de, etc.) or 'auto' for auto-detection"
+    },
+    "model": {
+      "type": "string",
+      "default": "small",
+      "enum": ["tiny", "base", "small", "medium", "large-v3"],
+      "description": "Whisper model size"
+    },
+    "output-dir": {
+      "type": "string",
+      "default": ".",
+      "description": "Output directory for generated files"
+    },
+    "words": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable word-level timestamps in SRT output"
+    },
+    "fields": {
+      "type": "string",
+      "description": "Comma-separated list of response fields to include (text, language, srt_path, txt_path, json_path, wav_path)"
+    },
+    "dry-run": {
+      "type": "boolean",
+      "default": false,
+      "description": "Validate input and show execution plan without transcribing"
+    },
+    "format": {
+      "type": "string",
+      "enum": ["json", "table"],
+      "description": "Output format (auto-detected: json when piped, table when TTY)"
+    },
+    "no-clean": {
+      "type": "boolean",
+      "default": false,
+      "description": "Skip ffmpeg audio cleaning (silence removal, denoise, normalize)"
+    },
+    "no-download": {
+      "type": "boolean",
+      "default": false,
+      "description": "Skip yt-dlp download (local files only, errors if input is URL)"
+    },
+    "json": {
+      "type": "string",
+      "description": "Raw JSON payload with keys: input (source), language, model. Overrides CLI arguments."
+    }
+  },
+  "output": {
+    "text": "Full transcript as plain text",
+    "language": "Detected or forced language code",
+    "srt_path": "Path to generated .srt subtitle file",
+    "txt_path": "Path to generated .txt file",
+    "json_path": "Path to generated .json file",
+    "wav_path": "Path to cleaned .wav file (null if --no-clean)"
+  },
+  "examples": [
+    "vox transcribe recording.mp3",
+    "vox transcribe https://youtube.com/watch?v=... -l fr -m large-v3",
+    "vox transcribe audio.wav --fields text --format json",
+    "vox transcribe video.mp4 --dry-run --format json",
+    "vox transcribe --json '{\"input\":\"audio.mp3\",\"language\":\"en\"}' --format json"
+  ],
+  "dependencies": ["yt-dlp (for URLs)", "ffmpeg (for audio cleaning)", "mlx-whisper (transcription engine)"]
+}

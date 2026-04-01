@@ -1,0 +1,40 @@
+{
+  "name": "init",
+  "description": "Initialize vox: check dependencies, download Whisper model, save configuration",
+  "options": {
+    "model": {
+      "type": "string",
+      "default": "small",
+      "enum": ["tiny", "base", "small", "medium", "large-v3"],
+      "description": "Whisper model to download"
+    },
+    "language": {
+      "type": "string",
+      "default": "auto",
+      "description": "Default language for transcription (ISO 639-1 code or 'auto')"
+    },
+    "format": {
+      "type": "string",
+      "enum": ["json", "table"],
+      "description": "Output format"
+    }
+  },
+  "output": {
+    "success": "Whether initialization completed successfully",
+    "model": "Model name that was downloaded",
+    "model_repo": "HuggingFace repository path",
+    "language": "Default language saved to config",
+    "missing_deps": "List of missing system dependencies (yt-dlp, ffmpeg)"
+  },
+  "dependencies": {
+    "yt-dlp": "install via 'brew install yt-dlp'",
+    "ffmpeg": "install via 'brew install ffmpeg'",
+    "mlx-whisper": "installed as Python dependency"
+  },
+  "examples": [
+    "vox init",
+    "vox init -m large-v3",
+    "vox init -m small -l fr",
+    "vox init --format json"
+  ]
+}

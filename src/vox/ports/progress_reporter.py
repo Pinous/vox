@@ -1,0 +1,9 @@
+from typing import Protocol
+
+
+class ProgressReporter(Protocol):
+    def start(self, label: str) -> None: ...
+
+    def update(self, label: str) -> None: ...
+
+    def finish(self) -> None: ...
