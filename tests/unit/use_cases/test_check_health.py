@@ -61,6 +61,22 @@ class TestCheckHealth:
         assert report.model_name is None
         assert report.model_cached is False
 
+    def test_execute_when_openai_key_set_then_openai_status_set(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        use_case = _build_use_case()
+
+        report = use_case.execute()
+
+        assert report.openai_api_key_set is True
+
+    def test_execute_when_openai_key_unset_then_openai_status_false(self, monkeypatch):
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        use_case = _build_use_case()
+
+        report = use_case.execute()
+
+        assert report.openai_api_key_set is False
+
 
 def _build_use_case(
     checker: FakeDependencyChecker | None = None,

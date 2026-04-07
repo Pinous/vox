@@ -4,6 +4,7 @@ from vox.models.exceptions import ValidationError
 
 _ALIAS_MAP = {
     "large-v3": "LARGE_V3",
+    "large-v3-turbo": "LARGE_V3_TURBO",
 }
 
 
@@ -13,6 +14,7 @@ class WhisperModel(Enum):
     SMALL = "mlx-community/whisper-small-mlx"
     MEDIUM = "mlx-community/whisper-medium-mlx"
     LARGE_V3 = "mlx-community/whisper-large-v3-mlx"
+    LARGE_V3_TURBO = "mlx-community/whisper-large-v3-turbo"
 
     @property
     def hf_repo(self) -> str:

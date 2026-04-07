@@ -57,6 +57,10 @@ vox channel "https://www.youtube.com/{channel}" \
 vox channel "https://www.youtube.com/{channel}" \
   --years 2025,2026 --upload --remote gdrive --remote-folder Transcripts --cleanup
 
+# Use the OpenAI cloud backend (works on Linux/Windows, requires OPENAI_API_KEY)
+vox transcribe podcast.mp3 -b openai
+vox transcribe interview.wav -b openai -m gpt-4o-mini-transcribe
+
 # Check dependencies
 vox doctor
 
@@ -72,13 +76,15 @@ vox schema transcribe
 | Command | Description |
 |---------|-------------|
 | `vox <source>` | Shorthand for `vox transcribe` |
-| `vox transcribe <source>` | Full transcription pipeline |
+| `vox transcribe <source>` | Full transcription pipeline (use `-b openai` for cloud) |
 | `vox channel <url>` | Batch transcribe a YouTube channel |
 | `vox init [-m MODEL]` | Download Whisper model |
 | `vox doctor` | Check dependency health |
 | `vox schema [COMMAND]` | JSON schema for agent introspection |
 
 ## Models
+
+### Local backend (default, MLX on Apple Silicon)
 
 | Model | Quality | Use Case |
 |-------|---------|----------|
@@ -87,6 +93,19 @@ vox schema transcribe
 | **small** | Good | **Default — balanced** |
 | medium | High | Important content |
 | large-v3 | Best | Maximum accuracy |
+| large-v3-turbo | Best | Faster than large-v3, near-identical quality |
+
+### OpenAI backend (cloud, cross-platform)
+
+| Model | Use Case |
+|-------|----------|
+| **gpt-4o-transcribe** | **Default for `-b openai` — best quality** |
+| gpt-4o-mini-transcribe | Faster, cheaper |
+| whisper-1 | Returns segment-level timestamps in SRT |
+
+The OpenAI backend requires `OPENAI_API_KEY` and the `openai` Python package
+(`uv add openai`). Files are limited to **25 MB** by the OpenAI API. Word-level
+timestamps (`--words`) are not supported with this backend.
 
 ## Agent-First Design
 

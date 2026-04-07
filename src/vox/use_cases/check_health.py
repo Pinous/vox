@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 
 from vox.models.whisper_model import WhisperModel
@@ -13,6 +14,7 @@ class HealthReport:
     config_exists: bool
     model_name: str | None
     model_cached: bool
+    openai_api_key_set: bool
 
 
 class CheckHealthUseCase:
@@ -38,6 +40,7 @@ class CheckHealthUseCase:
                 self._model_manager,
                 model_name,
             ),
+            openai_api_key_set=bool(os.environ.get("OPENAI_API_KEY")),
         )
 
 

@@ -3,6 +3,7 @@ import sys
 
 import click
 
+from vox.adapters.cli.install_hints import format_install_hint
 from vox.adapters.hf_model_manager import HfModelManager
 from vox.adapters.json_config_store import JsonConfigStore
 from vox.adapters.system_dep_checker import SystemDependencyChecker
@@ -46,6 +47,7 @@ def _to_dict(report) -> dict:
         "config_exists": report.config_exists,
         "model": report.model_name,
         "model_cached": report.model_cached,
+        "openai_api_key_set": report.openai_api_key_set,
     }
 
 
@@ -54,11 +56,17 @@ def _print_table(report) -> None:
         icon = "+" if dep.installed else "x"
         version = dep.version or "not found"
         click.echo(f"  [{icon}] {dep.name}: {version}")
+        if not dep.installed:
+            hint = format_install_hint(dep.name, sys.platform)
+            if hint:
+                click.echo(f"      → {hint}")
     click.echo(
         f"  Config: {'found' if report.config_exists else 'missing'}",
     )
     if report.model_name:
         cached = "cached" if report.model_cached else "not cached"
         click.echo(f"  Model: {report.model_name} ({cached})")
+    openai_status = "set" if report.openai_api_key_set else "not set"
+    click.echo(f"  OpenAI API key: {openai_status}")
     status = "healthy" if report.healthy else "unhealthy"
     click.echo(f"\n  Status: {status}")

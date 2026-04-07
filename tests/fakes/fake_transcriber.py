@@ -2,7 +2,6 @@ from pathlib import Path
 
 from vox.models.segment import Segment
 from vox.models.transcription_result import TranscriptionResult
-from vox.models.whisper_model import WhisperModel
 
 
 class FakeTranscriber:
@@ -16,7 +15,7 @@ class FakeTranscriber:
     def transcribe(
         self,
         audio_path: Path,
-        model: WhisperModel,
+        model: str,
         language: str | None,
         word_timestamps: bool,
     ) -> TranscriptionResult:

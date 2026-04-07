@@ -8,7 +8,6 @@ from vox.models.audio_config import AudioConfig
 from vox.models.exceptions import ValidationError
 from vox.models.language import Language
 from vox.models.transcription_input import TranscriptionInput
-from vox.models.whisper_model import WhisperModel
 from vox.ports.audio_cleaner import AudioCleaner
 from vox.ports.downloader import Downloader
 from vox.ports.file_writer import FileWriter
@@ -59,7 +58,6 @@ class TranscribeUseCase:
         parsed_input = TranscriptionInput.from_string(request.source)
         _reject_no_download_with_url(request.no_download, parsed_input)
         language = Language.from_string(request.language)
-        model = WhisperModel.from_string(request.model)
         output_dir = Path(request.output_dir)
 
         if request.dry_run:
@@ -67,7 +65,9 @@ class TranscribeUseCase:
 
         audio_path = self._resolve_audio(parsed_input, output_dir)
         wav_path = self._maybe_clean(audio_path, request.no_clean, output_dir)
-        result = self._transcribe(wav_path or audio_path, model, language, request)
+        result = self._transcribe(
+            wav_path or audio_path, request.model, language, request
+        )
         paths = self._write_outputs(
             result, output_dir, parsed_input, request.output_stem
         )

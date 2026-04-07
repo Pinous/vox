@@ -29,6 +29,16 @@ class TestWhisperModelFromString:
         with pytest.raises(ValidationError):
             WhisperModel.from_string("unknown")
 
+    def test_from_string_when_large_v3_turbo_dash_then_turbo_model(self):
+        result = WhisperModel.from_string("large-v3-turbo")
+
+        assert result == WhisperModel.LARGE_V3_TURBO
+
+    def test_from_string_when_large_v3_turbo_underscore_then_turbo_model(self):
+        result = WhisperModel.from_string("large_v3_turbo")
+
+        assert result == WhisperModel.LARGE_V3_TURBO
+
 
 class TestWhisperModelHfRepo:
     def test_hf_repo_when_small_then_correct_path(self):
@@ -36,3 +46,9 @@ class TestWhisperModelHfRepo:
 
     def test_hf_repo_when_tiny_then_correct_path(self):
         assert WhisperModel.TINY.hf_repo == "mlx-community/whisper-tiny-mlx"
+
+    def test_hf_repo_when_large_v3_turbo_then_correct_path(self):
+        assert (
+            WhisperModel.LARGE_V3_TURBO.hf_repo
+            == "mlx-community/whisper-large-v3-turbo"
+        )

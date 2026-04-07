@@ -96,7 +96,7 @@ vox schema init
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `-l, --language` | string | auto | ISO 639-1 code or 'auto' |
-| `-m, --model` | string | small | tiny, base, small, medium, large-v3 |
+| `-m, --model` | string | small | tiny, base, small, medium, large-v3, large-v3-turbo |
 | `-o, --output-dir` | string | . | Output directory |
 | `-w, --words` | boolean | false | Word-level timestamps in SRT |
 | `--fields` | string | all | Comma-separated: text, language, srt_path, txt_path, json_path, wav_path |
@@ -104,6 +104,7 @@ vox schema init
 | `--format` | string | auto | json (piped) or table (TTY) |
 | `--no-clean` | boolean | false | Skip ffmpeg audio cleaning |
 | `--no-download` | boolean | false | Skip yt-dlp (local files only) |
+| `-b, --backend` | string | local | local (MLX) or openai (cloud API, requires OPENAI_API_KEY) |
 | `--json` | string | - | Raw JSON payload: {"input", "language", "model"} |
 
 ## Channel Flags
@@ -112,7 +113,7 @@ vox schema init
 |------|------|---------|-------------|
 | `--years` | string | required | Comma-separated years (e.g. 2025,2026) |
 | `-l, --language` | string | auto | ISO 639-1 code or 'auto' |
-| `-m, --model` | string | small | tiny, base, small, medium, large-v3 |
+| `-m, --model` | string | small | tiny, base, small, medium, large-v3, large-v3-turbo |
 | `-o, --output-dir` | string | . | Output directory |
 | `--upload` | boolean | false | Upload via rclone after transcription |
 | `--remote` | string | "" | rclone remote name |
@@ -153,6 +154,7 @@ Input (URL or file)
 | small | Good | Balanced | **Default — recommended** |
 | medium | High | Slow | Important content |
 | large-v3 | Best | Slowest | Maximum accuracy |
+| large-v3-turbo | Best | Fast | Near-identical to large-v3, faster |
 
 ## Supported Languages
 

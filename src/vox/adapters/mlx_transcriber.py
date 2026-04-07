@@ -13,11 +13,12 @@ class MlxTranscriber:
     def transcribe(
         self,
         audio_path: Path,
-        model: WhisperModel,
+        model: str,
         language: str | None,
         word_timestamps: bool,
     ) -> TranscriptionResult:
-        raw = _call_mlx(audio_path, model, language, word_timestamps)
+        resolved = WhisperModel.from_string(model)
+        raw = _call_mlx(audio_path, resolved, language, word_timestamps)
         return _to_result(raw, word_timestamps)
 
 
