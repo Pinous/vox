@@ -1,154 +1,199 @@
-# ADR-001 : Batch transcription de chaîne YouTube + upload Google Drive
+# ADR-001: Batch YouTube channel transcription with Google Drive upload
 
-**Date** : 2026-04-01
-**Statut** : Accepté
+**Date**: 2026-04-01
+**Status**: Accepted
 
-## Contexte
+## Context
 
-On utilise `vox` pour transcrire des vidéos YouTube une par une. Le besoin est apparu de transcrire en masse les vidéos d'une chaîne — en l'occurrence les vidéos "scalping nasdaq" de @XEILOSTRADING, filtrées sur 2025-2026 — puis de pousser les transcripts sur Google Drive sans garder les fichiers audio en local (espace disque limité).
+`vox` was used to transcribe YouTube videos one at a time. The need
+emerged to transcribe an entire channel's videos in bulk, filtered by
+year, then push the transcripts to Google Drive without keeping the
+audio files locally (limited disk space).
 
-Aucune fonctionnalité batch n'existait. Le CLI ne gérait qu'une seule URL ou fichier à la fois.
+No batch functionality existed. The CLI handled only one URL or file
+at a time.
 
-Second besoin : organiser les transcripts comme une knowledge base exploitable par Claude Code. Chaque vidéo a un `meta.md` (auteur, topics, résumé LLM), et un `index.md` centralise tous les metas pour permettre une recherche rapide sans lire chaque transcript.
+A second need: organize the transcripts as a knowledge base usable by
+Claude Code. Each video gets a `meta.md` (author, topics, LLM
+summary), and an `index.md` aggregates all the metas so an agent can
+search quickly without reading every transcript.
 
-## Décisions
+## Decisions
 
-### Nouvelle commande `vox channel`
+### New `vox channel` command
 
-On a créé une commande dédiée plutôt qu'un flag `--batch` sur `transcribe`. Raison : le flow est fondamentalement différent (listing → filtrage → boucle → summarize → upload → cleanup). Mélanger ça dans `transcribe` aurait violé SRP.
+A dedicated command was created rather than a `--batch` flag on
+`transcribe`. The flow is fundamentally different (listing → filter →
+loop → summarize → upload → cleanup). Mixing this into `transcribe`
+would have violated SRP.
 
-### rclone comme adaptateur d'upload (pas l'API Google directement)
+### rclone as upload adapter (not the Google API directly)
 
-Trois options étaient sur la table :
-1. **OAuth2 + google-api-python-client** — standard mais setup lourd (projet Google Cloud, client_secret.json, flow OAuth interactif)
-2. **rclone** — déjà un outil que beaucoup ont configuré, gère le multi-compte Google nativement, zéro dépendance Python supplémentaire
-3. **Service Account** — pas de flow interactif mais nécessite un partage de dossier explicite
+Three options were on the table:
 
-On a choisi rclone parce que :
-- Pas de nouvelle dépendance Python (subprocess comme yt-dlp et ffmpeg)
-- Le `u/4` dans l'URL Drive (4ème compte Google) est géré naturellement par rclone
-- Pattern cohérent avec le reste du projet : les outils externes sont appelés en subprocess via des adapters
+1. **OAuth2 + google-api-python-client** — standard but heavy setup
+   (Google Cloud project, `client_secret.json`, interactive OAuth flow)
+2. **rclone** — already a tool many users have configured, handles
+   multi-account Google natively, zero extra Python dependency
+3. **Service Account** — no interactive flow but requires explicit
+   folder sharing
 
-Le port `FileUploader` est volontairement générique (pas couplé à rclone). Demain on peut brancher S3, Dropbox, ou l'API Google directe sans toucher au use case.
+rclone was chosen because:
 
-### Organisation des fichiers : knowledge base structure
+- No new Python dependency (subprocess, like yt-dlp and ffmpeg)
+- Multi-account Google Drive (e.g. `u/4` in the Drive URL) is handled
+  natively by rclone
+- Consistent with the rest of the project: external tools are called
+  via subprocess adapters
 
-Structure locale :
+The `FileUploader` port is intentionally generic (not coupled to
+rclone). Tomorrow we can plug in S3, Dropbox, or the Google API
+directly without touching the use case.
+
+### File organization: knowledge base structure
+
+Local structure:
+
 ```
 ~/transcripts/
-├── CLAUDE.md                              ← contexte pour Claude Code
-├── index.md                               ← concaténation de tous les meta.md
-├── 2025-03-15_scalping-nasdaq-session-1/
+├── CLAUDE.md                          ← context for Claude Code
+├── index.md                           ← concatenation of every meta.md
+├── 2025-03-15_video-slug-1/
 │   ├── transcript.txt
 │   ├── transcript.srt
 │   ├── transcript.json
 │   └── meta.md
-└── 2025-04-20_scalping-nasdaq-session-2/
+└── 2025-04-20_video-slug-2/
     ├── transcript.txt
     └── meta.md
 ```
 
-Structure sur le remote (même hiérarchie avec chaîne en plus) :
-`gdrive:Transcripts/XEILOSTRADING/Scalping Nasdaq Session 1/`
+Remote structure (same hierarchy with the channel name on top):
 
-Pourquoi cette structure :
-- **Dossier par vidéo avec date-slug** : triable chronologiquement, lisible par un humain
-- **meta.md** : métadonnées structurées (auteur, topics, résumé) pour recherche rapide
-- **index.md** : le "hack" — Claude Code lit ce seul fichier et connaît tous les transcripts
-- **CLAUDE.md** : explique la structure à Claude Code automatiquement
+```
+gdrive:Transcripts/<channel>/<Video Title>/
+```
 
-### Résumé et topics via Claude CLI (par défaut)
+Why this structure:
 
-Par défaut, `vox channel` utilise le CLI `claude` en subprocess pour générer le résumé et les topics. C'est l'abonnement Claude de l'utilisateur qui est utilisé — pas besoin d'API key, pas de dépendance Python supplémentaire.
+- **One folder per video with date-slug**: chronologically sortable,
+  human-readable
+- **`meta.md`**: structured metadata (author, topics, summary) for
+  fast search
+- **`index.md`**: the trick — Claude Code reads this single file and
+  knows about every transcript
+- **`CLAUDE.md`**: explains the structure to Claude Code automatically
 
-Le summarizer est pluggable via le flag `--summarizer` :
+### Summary and topics via Claude CLI (default)
 
-| Valeur | Adapter | Quand l'utiliser |
-|--------|---------|------------------|
-| `auto` (défaut) | `ClaudeSummarizer` si `claude` dans PATH, sinon `NoopSummarizer` | Usage normal — marche out-of-the-box si Claude Code est installé |
-| `claude` | `ClaudeSummarizer` | Forcer le CLI Claude |
-| `anthropic` | `AnthropicSummarizer` | API directe, nécessite `ANTHROPIC_API_KEY` + `pip install anthropic` |
-| `none` | `NoopSummarizer` | Skip le résumé/topics |
+By default, `vox channel` shells out to the `claude` CLI to generate
+the summary and topics. This uses the user's Claude subscription — no
+API key needed, no extra Python dependency.
 
-Pourquoi ce design :
-- **Par défaut ça marche** : si tu as Claude Code, tu as `claude` dans ton PATH, donc summary + topics sont générés sans config
-- **Pluggable** : le port `TranscriptSummarizer` est un Protocol Python. Pour ajouter un backend (OpenAI, Mistral, etc.), il suffit de créer un adapter avec `summarize(text, title) -> SummaryResult` et de l'ajouter dans `_build_summarizer()`
-- **Pas de dépendance forcée** : le SDK Anthropic est un import lazy dans l'adapter, pas une dépendance du projet
+The summarizer is pluggable via the `--summarizer` flag:
 
-### Traitement séquentiel (pas parallèle)
+| Value           | Adapter                                                       | When to use it                                                |
+| --------------- | ------------------------------------------------------------- | ------------------------------------------------------------- |
+| `auto` (default)| `ClaudeSummarizer` if `claude` is in PATH, else `NoopSummarizer` | Normal use — works out of the box if Claude Code is installed |
+| `claude`        | `ClaudeSummarizer`                                            | Force the Claude CLI                                          |
+| `anthropic`     | `AnthropicSummarizer`                                         | Direct API, requires `ANTHROPIC_API_KEY` + `pip install anthropic` |
+| `none`          | `NoopSummarizer`                                              | Skip the summary/topics step                                  |
 
-Une vidéo à la fois : download → clean → transcribe → summarize → meta → upload → cleanup → suivante. Raisons :
-- Contrôle de l'espace disque (avec `--cleanup`, on ne stocke qu'une vidéo à la fois)
-- MLX Whisper utilise le GPU — paralléliser n'apporterait rien
-- Simplifie le debug et le suivi de progression
+Why this design:
 
-### Tolérance aux erreurs partielles
+- **Works out of the box**: if you have Claude Code, you have `claude`
+  in your PATH, so summary + topics are generated with no config
+- **Pluggable**: the `TranscriptSummarizer` port is a Python
+  `Protocol`. To add a new backend (OpenAI, Mistral, etc.), create an
+  adapter implementing `summarize(text, title) -> SummaryResult` and
+  register it in `_build_summarizer()`
+- **No forced dependency**: the Anthropic SDK is a lazy import inside
+  the adapter, not a project dependency
 
-Si une vidéo échoue (réseau, format non supporté, etc.), on enregistre l'erreur et on continue. Le `BatchResult` final donne le bilan `succeeded/failed`. Le meta.md n'est pas écrit pour les vidéos en échec. L'index.md ne contient que les vidéos réussies.
+### Sequential processing (not parallel)
+
+One video at a time: download → clean → transcribe → summarize →
+write meta → upload → cleanup → next. Reasons:
+
+- Disk space control (with `--cleanup`, only one video lives on disk
+  at a time)
+- MLX Whisper uses the GPU — parallelizing would not help
+- Simpler debugging and progress tracking
+
+### Tolerance for partial failures
+
+If a video fails (network error, unsupported format, etc.), the error
+is recorded and the loop continues. The final `BatchResult` reports
+`succeeded/failed`. No `meta.md` is written for failed videos. The
+`index.md` only contains successful videos.
 
 ## Architecture
 
 ```
-Models (couche interne)
-  ChannelVideo (+duration_seconds), DateRange, BatchResult
+Models (inner layer)
+  ChannelVideo (with duration_seconds), DateRange, BatchResult
   SummaryResult, VideoMetadata
-  + exceptions : ChannelListingError, UploadError
+  + exceptions: ChannelListingError, UploadError
 
 Ports (interfaces)
   ChannelLister, FileUploader, FileCleaner
   TranscriptSummarizer, MetadataWriter
 
-Use Case
+Use case
   BatchTranscribeUseCase
-    ├── compose TranscribeUseCase (pas de duplication)
-    ├── appelle TranscriptSummarizer pour enrichir
-    └── appelle MetadataWriter pour meta/index/CLAUDE.md
+    ├── composes TranscribeUseCase (no duplication)
+    ├── calls TranscriptSummarizer to enrich
+    └── calls MetadataWriter for meta/index/CLAUDE.md
 
-Adapters (couche externe)
+Adapters (outer layer)
   YtdlpChannelLister, RcloneUploader, DiskFileCleaner
   ClaudeSummarizer / AnthropicSummarizer / NoopSummarizer
   DiskMetadataWriter
-  CLI : channel_cmd.py (--summarizer auto|claude|anthropic|none)
+  CLI: channel_cmd.py (--summarizer auto|claude|anthropic|none)
 ```
 
-## Fichiers créés
+## Files created
 
-| Fichier | Rôle |
-|---------|------|
-| `src/vox/models/channel_video.py` | Video YouTube (id, titre, date, chaîne, durée) |
-| `src/vox/models/date_range.py` | Filtre par années (factory `from_years`) |
-| `src/vox/models/batch_result.py` | Résultat batch (succès/échecs par vidéo) |
-| `src/vox/models/summary_result.py` | Résultat LLM (summary + topics) |
-| `src/vox/models/video_metadata.py` | Contenu du meta.md |
-| `src/vox/ports/channel_lister.py` | Protocol : lister les vidéos d'une chaîne |
-| `src/vox/ports/file_uploader.py` | Protocol : uploader un fichier (générique) |
-| `src/vox/ports/file_cleaner.py` | Protocol : supprimer un fichier |
-| `src/vox/ports/transcript_summarizer.py` | Protocol : résumer un transcript |
-| `src/vox/ports/metadata_writer.py` | Protocol : écrire meta/index/CLAUDE.md |
-| `src/vox/adapters/ytdlp_channel_lister.py` | yt-dlp --flat-playlist --dump-json |
-| `src/vox/adapters/rclone_uploader.py` | rclone copy vers remote |
-| `src/vox/adapters/disk_file_cleaner.py` | path.unlink() |
-| `src/vox/adapters/claude_summarizer.py` | Claude Sonnet via CLI `claude -p` (abonnement) |
-| `src/vox/adapters/anthropic_summarizer.py` | Claude Sonnet via SDK Anthropic (API key) |
-| `src/vox/adapters/noop_summarizer.py` | No-op quand on skip le résumé |
-| `src/vox/adapters/disk_metadata_writer.py` | Écrit meta.md, index.md, CLAUDE.md |
-| `src/vox/adapters/cli/channel_cmd.py` | Commande Click `vox channel` |
-| `src/vox/use_cases/batch_transcribe.py` | Orchestration batch |
+| File                                          | Purpose                                              |
+| --------------------------------------------- | ---------------------------------------------------- |
+| `src/vox/models/channel_video.py`             | YouTube video (id, title, date, channel, duration)  |
+| `src/vox/models/date_range.py`                | Year filter (factory `from_years`)                  |
+| `src/vox/models/batch_result.py`              | Batch result (per-video success/failure)            |
+| `src/vox/models/summary_result.py`            | LLM result (summary + topics)                       |
+| `src/vox/models/video_metadata.py`            | Content of `meta.md`                                |
+| `src/vox/ports/channel_lister.py`             | Protocol: list a channel's videos                   |
+| `src/vox/ports/file_uploader.py`              | Protocol: upload a file (generic)                   |
+| `src/vox/ports/file_cleaner.py`               | Protocol: delete a file                             |
+| `src/vox/ports/transcript_summarizer.py`      | Protocol: summarize a transcript                    |
+| `src/vox/ports/metadata_writer.py`            | Protocol: write meta/index/CLAUDE.md                |
+| `src/vox/adapters/ytdlp_channel_lister.py`    | `yt-dlp --flat-playlist --dump-json`                |
+| `src/vox/adapters/rclone_uploader.py`         | `rclone copy` to remote                             |
+| `src/vox/adapters/disk_file_cleaner.py`       | `path.unlink()`                                     |
+| `src/vox/adapters/claude_summarizer.py`       | Claude Sonnet via `claude -p` CLI (subscription)    |
+| `src/vox/adapters/anthropic_summarizer.py`    | Claude Sonnet via Anthropic SDK (API key)           |
+| `src/vox/adapters/noop_summarizer.py`         | No-op when summary is skipped                       |
+| `src/vox/adapters/disk_metadata_writer.py`    | Writes `meta.md`, `index.md`, `CLAUDE.md`           |
+| `src/vox/adapters/cli/channel_cmd.py`         | Click command `vox channel`                         |
+| `src/vox/use_cases/batch_transcribe.py`       | Batch orchestration                                 |
 
-## Fichiers modifiés
+## Files modified
 
-| Fichier | Changement |
-|---------|------------|
-| `src/vox/models/exceptions.py` | +`ChannelListingError`, +`UploadError` |
-| `src/vox/adapters/cli/app.py` | +`main.add_command(channel)` |
-| `src/vox/use_cases/transcribe.py` | +`output_stem` sur `TranscribeRequest` |
+| File                                | Change                                          |
+| ----------------------------------- | ----------------------------------------------- |
+| `src/vox/models/exceptions.py`      | +`ChannelListingError`, +`UploadError`          |
+| `src/vox/adapters/cli/app.py`       | +`main.add_command(channel)`                    |
+| `src/vox/use_cases/transcribe.py`   | +`output_stem` field on `TranscribeRequest`     |
 
-## Conséquences
+## Consequences
 
-- `vox channel` produit une knowledge base prête à l'emploi pour Claude Code
-- Par défaut, summary + topics sont générés via l'abonnement Claude (CLI `claude -p`)
-- Le `CLAUDE.md` + `index.md` permettent à Claude de naviguer les transcripts sans tout lire
-- Le flag `--summarizer` rend le backend LLM pluggable (claude, anthropic, none, et extensible)
-- Le port `FileUploader` peut être réutilisé pour d'autres backends de stockage
-- Le `ChannelLister` peut être étendu pour d'autres sources (playlists, hashtags, etc.)
-- Les tests unitaires couvrent le use case via des fakes (108 tests, pas de réseau, pas de GPU)
+- `vox channel` produces a Claude-Code-ready knowledge base
+- By default, summary + topics are generated via the Claude
+  subscription (`claude -p` CLI)
+- `CLAUDE.md` + `index.md` let Claude navigate the transcripts without
+  reading every file
+- The `--summarizer` flag makes the LLM backend pluggable (claude,
+  anthropic, none, and extensible)
+- The `FileUploader` port can be reused for other storage backends
+- The `ChannelLister` can be extended to other sources (playlists,
+  hashtags, etc.)
+- Unit tests cover the use case via fakes (no network, no GPU)

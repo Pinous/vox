@@ -17,21 +17,21 @@ from vox.use_cases.batch_transcribe import (
 from vox.use_cases.transcribe import TranscribeUseCase
 
 
-def _video(video_id="v1", title="Scalping Nasdaq Live", date="20250315"):
+def _video(video_id="v1", title="Sample Video Live", date="20250315"):
     return ChannelVideo(
         video_id=video_id,
         title=title,
         url=f"https://www.youtube.com/watch?v={video_id}",
         upload_date=date,
-        channel_name="XEILOSTRADING",
+        channel_name="TestChannel",
         duration_seconds=1320,
     )
 
 
 def _two_videos():
     return (
-        _video("v1", "Scalping Nasdaq Session 1", "20250315"),
-        _video("v2", "Scalping Nasdaq Session 2", "20250420"),
+        _video("v1", "Sample Video Session 1", "20250315"),
+        _video("v2", "Sample Video Session 2", "20250420"),
     )
 
 
@@ -77,7 +77,7 @@ class _FailingTranscriber:
 
 def _request(**overrides):
     defaults = {
-        "channel_url": "https://www.youtube.com/@XEILOSTRADING/search?query=scalping",
+        "channel_url": "https://www.youtube.com/@TestChannel",
         "years": (2025, 2026),
         "output_dir": "/tmp/vox_test",
     }
@@ -158,7 +158,7 @@ class TestBatchTranscribeUseCase:
             if "Ma Video" in folder
         ]
         assert len(video_uploads) >= 3
-        assert all("XEILOSTRADING" in f for f in video_uploads)
+        assert all("TestChannel" in f for f in video_uploads)
 
     def test_execute_passes_correct_years_to_lister(self):
         fixture = Fixture(videos=())
@@ -183,7 +183,7 @@ class TestBatchTranscribeUseCase:
 
         assert len(fixture.metadata_writer.metas_written) == 1
         meta, folder = fixture.metadata_writer.metas_written[0]
-        assert meta.author == "XEILOSTRADING"
+        assert meta.author == "TestChannel"
         assert "2025-03-15" in str(folder)
 
     def test_execute_then_writes_index(self):
