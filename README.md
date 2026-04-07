@@ -1,6 +1,14 @@
 # vox
 
-Agent-first CLI for audio/video transcription via MLX Whisper on Apple Silicon.
+[![PyPI](https://img.shields.io/pypi/v/vox-transcribe)](https://pypi.org/project/vox-transcribe/)
+[![Python](https://img.shields.io/pypi/pyversions/vox-transcribe)](https://pypi.org/project/vox-transcribe/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+Local audio/video transcription for macOS. Runs Whisper on Apple Silicon — no cloud, no API keys, no cost per minute.
+
+Agent-first CLI built on [MLX Whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) for native GPU acceleration.
+
+> **New to the codebase?** Read the [Architecture Guide](ARCHITECTURE.md).
 
 ## Install
 
@@ -14,12 +22,11 @@ cd vox
 uv sync
 ```
 
-### System dependency
-
-**ffmpeg** is the only system dependency (for audio cleaning):
+### System dependencies
 
 ```bash
-brew install ffmpeg
+brew install ffmpeg    # audio cleaning (required)
+brew install rclone    # Google Drive upload (optional, for vox channel --upload)
 ```
 
 Everything else (mlx-whisper, yt-dlp) is installed automatically as Python packages.
@@ -42,6 +49,14 @@ vox transcribe podcast.mp3 --words
 # Agent mode: JSON output with specific fields
 vox transcribe audio.wav --fields text,language --format json
 
+# Batch transcribe a YouTube channel (filtered by year)
+vox channel "https://www.youtube.com/{channel}" \
+  --years 2025,2026 -o ~/transcripts
+
+# Same with Google Drive upload + disk cleanup
+vox channel "https://www.youtube.com/{channel}" \
+  --years 2025,2026 --upload --remote gdrive --remote-folder Transcripts --cleanup
+
 # Check dependencies
 vox doctor
 
@@ -58,6 +73,7 @@ vox schema transcribe
 |---------|-------------|
 | `vox <source>` | Shorthand for `vox transcribe` |
 | `vox transcribe <source>` | Full transcription pipeline |
+| `vox channel <url>` | Batch transcribe a YouTube channel |
 | `vox init [-m MODEL]` | Download Whisper model |
 | `vox doctor` | Check dependency health |
 | `vox schema [COMMAND]` | JSON schema for agent introspection |
@@ -97,12 +113,14 @@ Input (URL or file)
 - **macOS** with Apple Silicon (M1/M2/M3/M4)
 - **Python 3.13+**
 - **ffmpeg** (`brew install ffmpeg`)
+- **rclone** (`brew install rclone`) — optional, for `vox channel --upload`
+- **Node.js** (`brew install node`) — optional, improves yt-dlp compatibility with YouTube
 
 ## Development
 
 ```bash
 uv sync
-uv run pytest              # Run tests (71 tests)
+uv run pytest              # Run tests (107 tests)
 uv run ruff check --fix    # Lint
 uv run ruff format         # Format
 uv run ty check            # Type check

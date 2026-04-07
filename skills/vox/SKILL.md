@@ -60,7 +60,21 @@ After receiving the raw transcript, fix common Whisper mistakes:
 **Timestamp Alignment:**
 - Preserve SRT structure when editing text
 
-### 4. Schema introspection
+### 4. Batch transcribe a channel
+```bash
+# Dry-run first
+vox channel "https://www.youtube.com/@ChannelName" --years 2025 --dry-run --format json
+
+# Transcribe + upload to Google Drive
+vox channel "https://www.youtube.com/@ChannelName" \
+  --years 2025,2026 -o ~/transcripts \
+  --upload --remote gdrive --remote-folder Transcripts --format json
+
+# Without summarization
+vox channel "https://www.youtube.com/@ChannelName" --years 2025 --summarizer none --format json
+```
+
+### 5. Schema introspection
 ```bash
 vox schema transcribe
 vox schema init
@@ -72,6 +86,7 @@ vox schema init
 |---------|---------|
 | `vox <source>` | Shorthand for `vox transcribe` |
 | `vox transcribe <source>` | Full transcription pipeline |
+| `vox channel <url>` | Batch transcribe a YouTube channel |
 | `vox init [-m MODEL] [-l LANG]` | Download Whisper model + check deps |
 | `vox doctor` | Check dependencies health |
 | `vox schema [COMMAND]` | JSON schema for agent introspection |
@@ -90,6 +105,26 @@ vox schema init
 | `--no-clean` | boolean | false | Skip ffmpeg audio cleaning |
 | `--no-download` | boolean | false | Skip yt-dlp (local files only) |
 | `--json` | string | - | Raw JSON payload: {"input", "language", "model"} |
+
+## Channel Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--years` | string | required | Comma-separated years (e.g. 2025,2026) |
+| `-l, --language` | string | auto | ISO 639-1 code or 'auto' |
+| `-m, --model` | string | small | tiny, base, small, medium, large-v3 |
+| `-o, --output-dir` | string | . | Output directory |
+| `--upload` | boolean | false | Upload via rclone after transcription |
+| `--remote` | string | "" | rclone remote name |
+| `--remote-folder` | string | "" | Remote folder path |
+| `--no-cleanup` | boolean | false | Keep audio files after upload |
+| `--no-cookies` | boolean | false | Don't use browser cookies for yt-dlp |
+| `--sleep` | int | 1 | Seconds between requests |
+| `--limit` | int | 0 | Max videos to process (0=all) |
+| `--dry-run` | boolean | false | Show execution plan without running |
+| `--summarizer` | string | auto | auto, claude, anthropic, none |
+| `--no-clean` | boolean | false | Skip ffmpeg audio cleaning |
+| `--format` | string | auto | json or table |
 
 ## Output Formats
 

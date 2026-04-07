@@ -24,3 +24,11 @@ class TranscriptionError(VoxError):
 
 class ConfigError(VoxError):
     pass
+
+
+class ChannelListingError(VoxError):
+    pass
+
+
+class UploadError(VoxError):
+    pass

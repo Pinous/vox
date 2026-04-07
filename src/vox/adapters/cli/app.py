@@ -2,6 +2,7 @@ import sys
 
 import click
 
+from vox.adapters.cli.channel_cmd import channel
 from vox.adapters.cli.doctor_cmd import doctor
 from vox.adapters.cli.init_cmd import init
 from vox.adapters.cli.schema_cmd import schema
@@ -21,6 +22,7 @@ def main() -> None:
 
 
 main.add_command(transcribe)
+main.add_command(channel)
 main.add_command(init)
 main.add_command(doctor)
 main.add_command(schema)

@@ -7,3 +7,32 @@ build/
 .pytest_cache/
 .ruff_cache/
 .DS_Store
+
+# Environment / secrets
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Python tooling
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Audio/video files
+*.wav
+*.mp3
+*.mp4
+*.m4a
+*.flac
+*.ogg
+*.webm
+
+# Transcripts output
+transcripts/
+*.srt
+*.txt
+!README.md
+!ARCHITECTURE.md

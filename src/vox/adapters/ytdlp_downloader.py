@@ -7,6 +7,9 @@ from vox.models.transcription_input import TranscriptionInput
 
 
 class YtdlpDownloader:
+    def __init__(self, use_cookies: bool = True):
+        self._use_cookies = use_cookies
+
     def download(
         self,
         source: TranscriptionInput,
@@ -14,23 +17,27 @@ class YtdlpDownloader:
     ) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
         template = str(output_dir / "%(title)s.%(ext)s")
-        cmd = _build_command(source.source, template)
+        cmd = self._build_command(source.source, template)
         stdout = _run_ytdlp(cmd)
         return _find_downloaded_file(output_dir, stdout)
 
-
-def _build_command(url: str, output_template: str) -> list[str]:
-    return [
-        sys.executable,
-        "-m",
-        "yt_dlp",
-        "-x",
-        "--audio-format",
-        "wav",
-        "-o",
-        output_template,
-        url,
-    ]
+    def _build_command(self, url: str, output_template: str) -> list[str]:
+        cmd = [
+            sys.executable,
+            "-m",
+            "yt_dlp",
+            "-x",
+            "--audio-format",
+            "wav",
+            "--js-runtimes",
+            "node",
+            "--remote-components",
+            "ejs:github",
+        ]
+        if self._use_cookies:
+            cmd += ["--cookies-from-browser", "chrome"]
+        cmd += ["-o", output_template, url]
+        return cmd
 
 
 def _run_ytdlp(cmd: list[str]) -> str:

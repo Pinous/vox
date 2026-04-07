@@ -26,6 +26,7 @@ class TranscribeRequest:
     no_clean: bool = False
     no_download: bool = False
     dry_run: bool = False
+    output_stem: str = ""
 
 
 @dataclass(frozen=True)
@@ -67,7 +68,9 @@ class TranscribeUseCase:
         audio_path = self._resolve_audio(parsed_input, output_dir)
         wav_path = self._maybe_clean(audio_path, request.no_clean, output_dir)
         result = self._transcribe(wav_path or audio_path, model, language, request)
-        paths = self._write_outputs(result, output_dir, parsed_input)
+        paths = self._write_outputs(
+            result, output_dir, parsed_input, request.output_stem
+        )
         self._progress.finish()
         return _build_response(result, paths, wav_path)
 
@@ -95,9 +98,9 @@ class TranscribeUseCase:
             audio_path, model, lang_code, request.word_timestamps
         )
 
-    def _write_outputs(self, result, output_dir, parsed_input):
+    def _write_outputs(self, result, output_dir, parsed_input, output_stem):
         self._progress.update("Writing outputs")
-        stem = _derive_output_stem(parsed_input)
+        stem = output_stem or _derive_output_stem(parsed_input)
         srt_path = output_dir / f"{stem}.srt"
         txt_path = output_dir / f"{stem}.txt"
         json_path = output_dir / f"{stem}.json"
