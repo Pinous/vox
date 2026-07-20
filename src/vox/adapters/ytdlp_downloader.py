@@ -1,14 +1,25 @@
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
+from vox.adapters.download_hint import format_download_failure
 from vox.models.exceptions import DownloadError
 from vox.models.transcription_input import TranscriptionInput
 
+ProcessRunner = Callable[[list[str]], subprocess.CompletedProcess]
+
 
 class YtdlpDownloader:
-    def __init__(self, use_cookies: bool = True):
+    def __init__(
+        self,
+        use_cookies: bool = True,
+        browser: str = "chrome",
+        process_runner: ProcessRunner | None = None,
+    ):
         self._use_cookies = use_cookies
+        self._browser = browser
+        self._run = process_runner or run_ytdlp
 
     def download(
         self,
@@ -18,8 +29,20 @@ class YtdlpDownloader:
         output_dir.mkdir(parents=True, exist_ok=True)
         template = str(output_dir / "%(title)s.%(ext)s")
         cmd = self._build_command(source.source, template)
-        stdout = _run_ytdlp(cmd)
+        stdout = self._execute(cmd)
         return _find_downloaded_file(output_dir, stdout)
+
+    def _execute(self, cmd: list[str]) -> str:
+        result = self._run(cmd)
+        if result.returncode != 0:
+            raise DownloadError(
+                format_download_failure(
+                    result.stderr,
+                    self._use_cookies,
+                    self._browser,
+                )
+            )
+        return result.stdout
 
     def _build_command(self, url: str, output_template: str) -> list[str]:
         cmd = [
@@ -35,21 +58,18 @@ class YtdlpDownloader:
             "ejs:github",
         ]
         if self._use_cookies:
-            cmd += ["--cookies-from-browser", "chrome"]
+            cmd += ["--cookies-from-browser", self._browser]
         cmd += ["-o", output_template, url]
         return cmd
 
 
-def _run_ytdlp(cmd: list[str]) -> str:
-    result = subprocess.run(
+def run_ytdlp(cmd: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         check=False,
     )
-    if result.returncode != 0:
-        raise DownloadError(f"yt-dlp failed: {result.stderr}")
-    return result.stdout
 
 
 def _find_downloaded_file(output_dir: Path, stdout: str) -> Path:
