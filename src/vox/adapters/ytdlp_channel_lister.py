@@ -12,9 +12,11 @@ class YtdlpChannelLister:
         self,
         use_cookies: bool = True,
         sleep_interval: int = 1,
+        browser: str = "chrome",
     ):
         self._use_cookies = use_cookies
         self._sleep_interval = sleep_interval
+        self._browser = browser
 
     def list_videos(
         self,
@@ -39,7 +41,7 @@ class YtdlpChannelLister:
             "ejs:github",
         ]
         if self._use_cookies:
-            cmd += ["--cookies-from-browser", "chrome"]
+            cmd += ["--cookies-from-browser", self._browser]
         if self._sleep_interval > 0:
             cmd += ["--sleep-interval", str(self._sleep_interval)]
         cmd.append(channel_url)

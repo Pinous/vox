@@ -17,6 +17,7 @@ class DefaultTranscribeGroup(click.Group):
 
 
 @click.group(cls=DefaultTranscribeGroup)
+@click.version_option(package_name="vox-transcribe", prog_name="vox")
 def main() -> None:
     pass
 
