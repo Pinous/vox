@@ -8,14 +8,18 @@ from vox.adapters.cli.output_formatter import format_output
 from vox.adapters.click_progress import ClickProgressReporter
 from vox.adapters.disk_file_writer import DiskFileWriter
 from vox.adapters.ffmpeg_audio_cleaner import FfmpegAudioCleaner
+from vox.adapters.json_voice_print_store import JsonVoicePrintStore
 from vox.adapters.mlx_transcriber import MlxTranscriber
 from vox.adapters.openai_transcriber import OpenAITranscriber
+from vox.adapters.sherpa_diarizer import SherpaDiarizer
+from vox.adapters.sherpa_voice_print_extractor import SherpaVoicePrintExtractor
 from vox.adapters.ytdlp_downloader import YtdlpDownloader
 from vox.models.exceptions import VoxError
 from vox.models.openai_model import OpenAIModel
 from vox.models.transcription_backend import TranscriptionBackend
 from vox.models.whisper_model import WhisperModel
 from vox.ports.transcriber import Transcriber
+from vox.use_cases.identify_speakers import IdentifySpeakersUseCase
 from vox.use_cases.transcribe import TranscribeRequest, TranscribeUseCase
 
 
@@ -44,6 +48,18 @@ from vox.use_cases.transcribe import TranscribeRequest, TranscribeUseCase
     default="local",
     help="local (MLX, default) | openai (cloud API)",
 )
+@click.option("--diarize", is_flag=True, help="Identify speakers (who said what)")
+@click.option(
+    "--identify",
+    is_flag=True,
+    help="Replace SPEAKER_xx by known names (see: vox speakers add)",
+)
+@click.option(
+    "--speakers",
+    type=int,
+    default=None,
+    help="Known speaker count (auto-detected if omitted)",
+)
 def transcribe(
     source,
     language,
@@ -59,6 +75,9 @@ def transcribe(
     no_cookies,
     browser,
     backend,
+    diarize,
+    identify,
+    speakers,
 ):
     source, language, model = _apply_json_overrides(
         json_payload, source, language, model
@@ -80,6 +99,9 @@ def transcribe(
         no_clean=no_clean,
         no_download=no_download,
         dry_run=dry_run,
+        diarize=diarize,
+        identify=identify,
+        num_speakers=speakers,
     )
     try:
         response = use_case.execute(request)
@@ -121,6 +143,11 @@ def _build_use_case(
         transcriber=_build_transcriber(backend),
         file_writer=DiskFileWriter(),
         progress=ClickProgressReporter(),
+        diarizer=SherpaDiarizer(),
+        speaker_identifier=IdentifySpeakersUseCase(
+            extractor=SherpaVoicePrintExtractor(),
+            store=JsonVoicePrintStore(),
+        ),
     )
 
 

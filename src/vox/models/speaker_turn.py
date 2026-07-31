@@ -4,14 +4,15 @@ from vox.models.exceptions import ValidationError
 
 
 @dataclass(frozen=True)
-class Segment:
+class SpeakerTurn:
     start: float
     end: float
-    text: str
-    speaker: str | None = None
+    speaker: str
 
     def __post_init__(self):
         if self.start < 0:
             raise ValidationError("start must be >= 0")
         if self.end <= self.start:
             raise ValidationError("end must be > start")
+        if not self.speaker.strip():
+            raise ValidationError("speaker must not be blank")

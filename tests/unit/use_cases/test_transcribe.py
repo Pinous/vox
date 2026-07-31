@@ -3,9 +3,11 @@ from __future__ import annotations
 import pytest
 
 from tests.fakes.fake_audio_cleaner import FakeAudioCleaner
+from tests.fakes.fake_diarizer import FakeDiarizer
 from tests.fakes.fake_downloader import FakeDownloader
 from tests.fakes.fake_file_writer import FakeFileWriter
 from tests.fakes.fake_progress import FakeProgressReporter
+from tests.fakes.fake_speaker_identifier import FakeSpeakerIdentifier
 from tests.fakes.fake_transcriber import FakeTranscriber
 from vox.models.exceptions import ValidationError
 from vox.use_cases.transcribe import (
@@ -22,12 +24,16 @@ class TranscribeFixture:
         self.transcriber = FakeTranscriber()
         self.file_writer = FakeFileWriter()
         self.progress = FakeProgressReporter()
+        self.diarizer = FakeDiarizer()
+        self.speaker_identifier = FakeSpeakerIdentifier()
         self.use_case = TranscribeUseCase(
             downloader=self.downloader,
             audio_cleaner=self.audio_cleaner,
             transcriber=self.transcriber,
             file_writer=self.file_writer,
             progress=self.progress,
+            diarizer=self.diarizer,
+            speaker_identifier=self.speaker_identifier,
         )
 
     def execute(self, **overrides) -> TranscribeResponse:
@@ -40,6 +46,8 @@ class TranscribeFixture:
             "no_clean": False,
             "no_download": False,
             "dry_run": False,
+            "diarize": False,
+            "identify": False,
         }
         defaults.update(overrides)
         request = TranscribeRequest(**defaults)
@@ -198,3 +206,121 @@ class TestExecuteWhenValidThenOutputFilenamesMatchSource:
         assert "vox_" in result.srt_path
         assert "vox_" in result.txt_path
         assert "vox_" in result.json_path
+
+
+class TestExecuteWhenDiarizeThenAssignsSpeakers:
+    def test_execute_when_diarize_disabled_then_diarizer_not_called(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=False)
+
+        assert fix.diarizer.diarize_called_with is None
+
+    def test_execute_when_diarize_then_calls_diarizer(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=True)
+
+        assert fix.diarizer.diarize_called_with is not None
+
+    def test_execute_when_diarize_then_diarizes_same_file_as_transcribed(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=True)
+
+        transcribed_path = fix.transcriber.transcribe_called_with[0]
+        diarized_path = fix.diarizer.diarize_called_with[0]
+        assert diarized_path == transcribed_path
+
+    def test_execute_when_diarize_then_written_segments_carry_speaker(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=True)
+
+        written_result = fix.file_writer.json_written[0][0]
+        assert written_result.segments[0].speaker == "SPEAKER_00"
+
+    def test_execute_when_diarize_disabled_then_segments_have_no_speaker(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=False)
+
+        written_result = fix.file_writer.json_written[0][0]
+        assert written_result.segments[0].speaker is None
+
+    def test_execute_when_diarize_then_passes_num_speakers(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=True, num_speakers=3)
+
+        assert fix.diarizer.diarize_called_with[1] == 3
+
+
+class TestExecuteWhenDiarizeThenPreservesAudioTimeline:
+    def test_execute_when_diarize_then_silence_removal_disabled(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=True)
+
+        config = fix.audio_cleaner.clean_called_with[1]
+        assert config.remove_silence is False
+
+    def test_execute_when_diarize_then_denoise_disabled(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=True)
+
+        config = fix.audio_cleaner.clean_called_with[1]
+        assert config.denoise is False
+
+    def test_execute_when_diarize_then_still_mono_16k(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=True)
+
+        config = fix.audio_cleaner.clean_called_with[1]
+        assert (config.sample_rate, config.channels) == (16000, 1)
+
+    def test_execute_when_no_diarize_then_default_cleaning_kept(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=False)
+
+        config = fix.audio_cleaner.clean_called_with[1]
+        assert config.remove_silence is True
+        assert config.denoise is True
+
+
+class TestExecuteWhenIdentifyThenRenamesSpeakers:
+    def test_execute_when_identify_then_labels_replaced_by_names(self):
+        fix = TranscribeFixture()
+        fix.speaker_identifier.mapping = {"SPEAKER_00": "Coco"}
+
+        fix.execute(diarize=True, identify=True)
+
+        written = fix.file_writer.json_written[0][0]
+        assert written.segments[0].speaker == "Coco"
+
+    def test_execute_when_identify_disabled_then_labels_kept(self):
+        fix = TranscribeFixture()
+        fix.speaker_identifier.mapping = {"SPEAKER_00": "Coco"}
+
+        fix.execute(diarize=True, identify=False)
+
+        written = fix.file_writer.json_written[0][0]
+        assert written.segments[0].speaker == "SPEAKER_00"
+
+    def test_execute_when_identify_without_diarize_then_no_identification(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=False, identify=True)
+
+        assert fix.speaker_identifier.called_with is None
+
+    def test_execute_when_identify_then_receives_diarized_turns(self):
+        fix = TranscribeFixture()
+
+        fix.execute(diarize=True, identify=True)
+
+        _path, turns = fix.speaker_identifier.called_with
+        assert turns[0].speaker == "SPEAKER_00"

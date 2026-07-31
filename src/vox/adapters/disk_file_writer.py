@@ -9,7 +9,7 @@ class DiskFileWriter:
         path.write_text(_format_srt(result), encoding="utf-8")
 
     def write_txt(self, result: TranscriptionResult, path: Path) -> None:
-        path.write_text(result.text, encoding="utf-8")
+        path.write_text(_format_txt(result), encoding="utf-8")
 
     def write_json(self, result: TranscriptionResult, path: Path) -> None:
         payload = _to_dict(result)
@@ -30,7 +30,32 @@ def _format_srt(result: TranscriptionResult) -> str:
 def _format_srt_block(index: int, segment) -> str:
     start = _seconds_to_srt_timecode(segment.start)
     end = _seconds_to_srt_timecode(segment.end)
-    return f"{index}\n{start} --> {end}\n{segment.text}"
+    return f"{index}\n{start} --> {end}\n{_labelled_text(segment)}"
+
+
+def _labelled_text(segment) -> str:
+    if segment.speaker is None:
+        return segment.text
+    return f"[{segment.speaker}] {segment.text}"
+
+
+def _format_txt(result: TranscriptionResult) -> str:
+    if not any(s.speaker for s in result.segments):
+        return result.text
+    return "\n\n".join(
+        f"{speaker}: {text}" for speaker, text in _group_by_speaker(result.segments)
+    )
+
+
+def _group_by_speaker(segments) -> list[tuple[str, str]]:
+    blocks: list[tuple[str, list[str]]] = []
+    for segment in segments:
+        speaker = segment.speaker or "UNKNOWN"
+        if blocks and blocks[-1][0] == speaker:
+            blocks[-1][1].append(segment.text.strip())
+        else:
+            blocks.append((speaker, [segment.text.strip()]))
+    return [(speaker, " ".join(parts)) for speaker, parts in blocks]
 
 
 def _seconds_to_srt_timecode(seconds: float) -> str:
@@ -54,6 +79,7 @@ def _segment_to_dict(segment) -> dict:
         "start": segment.start,
         "end": segment.end,
         "text": segment.text,
+        "speaker": segment.speaker,
     }
 
 

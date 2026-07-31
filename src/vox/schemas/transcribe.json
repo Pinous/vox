@@ -57,6 +57,20 @@
     "json": {
       "type": "string",
       "description": "Raw JSON payload with keys: input (source), language, model. Overrides CLI arguments."
+    },
+    "diarize": {
+      "type": "boolean",
+      "default": false,
+      "description": "Identify speakers: each segment is labelled with SPEAKER_00, SPEAKER_01, etc."
+    },
+    "speakers": {
+      "type": "integer",
+      "description": "Known speaker count. Auto-detected when omitted, but passing the exact count is markedly more reliable."
+    },
+    "identify": {
+      "type": "boolean",
+      "default": false,
+      "description": "Replace SPEAKER_00 labels with real names, matched against voices registered via 'vox speakers add'. Requires diarize."
     }
   },
   "output": {
