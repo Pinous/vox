@@ -10,6 +10,7 @@ class SystemDependencyChecker:
             _check_python_module("yt_dlp", "yt-dlp"),
             _check_binary("ffmpeg"),
             _check_python_module("mlx_whisper", "mlx-whisper"),
+            _check_python_module("sherpa_onnx", "sherpa-onnx"),
         ]
 
 

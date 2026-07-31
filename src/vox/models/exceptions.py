@@ -22,6 +22,10 @@ class TranscriptionError(VoxError):
     pass
 
 
+class DiarizationError(VoxError):
+    pass
+
+
 class ConfigError(VoxError):
     pass
 
