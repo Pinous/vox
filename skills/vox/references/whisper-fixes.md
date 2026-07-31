@@ -1,12 +1,26 @@
 # Whisper Post-Processing Reference
 
 Corrections ranked by measured frequency, derived from a 1.8M-word French corpus
-(227 transcripts, `large-v3`, trading/finance domain). Counts are the evidence for
-the ranking — apply the top sections first, they carry the volume.
+(227 transcripts, `large-v3`). Counts are the evidence for the ranking — apply the
+top sections first, they carry the volume.
 
-Read [Section 9](#9-do-not-correct-these) before writing any rule. Several
+The corpus is single-domain and French, so treat the absolute numbers as
+indicative. The phenomena themselves — hallucinations, decoder loops, boundary
+duplication, missing punctuation — are properties of the decoder, not of the
+subject matter, and show up in any language.
+
+Read [Section 10](#10-do-not-correct-these) before writing any rule. Several
 categories that look obvious are **empty** in practice, and acting on them only
 introduces regressions.
+
+## Ground rules
+
+- Fix **form**, never **content**. Do not reword, summarize, or repair the
+  speaker's grammar — a transcript is a record of what was said.
+- Never invent. Mark an unintelligible passage `[inaudible]` rather than guessing.
+- Ask the user for a glossary (names, acronyms, jargon) instead of inferring
+  domain spellings. Proper nouns are the one category the model reliably fails,
+  and the one you cannot derive from context.
 
 ## 1. Silence hallucinations — highest priority
 
@@ -21,13 +35,17 @@ never treat as content.
 | `Abonnez-vous`, `Merci d'avoir regardé` | 15 |
 | A bare URL repeated across segments | 148 |
 
+English audio produces the same family: `Thanks for watching!`, `Please
+subscribe`, `Subtitles by ...`, `Amara.org`, `♪`, `[Music]`, `[Applause]`, and a
+closing credit line duplicated at the very end of the file.
+
 Present in **73 of 227 files**. Some files are ~100% artifact (e.g. 84 hits for
 252 words) — if the hallucination-to-word ratio approaches 1.0, the recording has
 no usable content; report that instead of "cleaning" it.
 
 ## 2. Decoder repetition loops
 
-Distinct from boundary duplication (§7). A single token repeats hundreds of times.
+Distinct from boundary duplication (§3). A single token repeats hundreds of times.
 Measured: 300 runs of ≥5 identical consecutive tokens, 24,414 junk tokens, 106 files.
 
 **Detection signature: run lengths pin to 221–223** — that's the decoder's internal
@@ -43,89 +61,26 @@ the same collapse.
 Beware the promoted-proper-noun trap: a looped token gets capitalized and reads as a
 name. One corpus token appeared 2462 times, of which only 10 were genuine.
 
-## 3. Domain vocabulary — certain corrections
-
-### propfirm — the single highest-volume error
-
-**1042 wrong vs 12 correct.** The term is essentially never transcribed right.
-
-| Wrong | Occurrences |
-|---|---|
-| `propre firme` / `propres firmes` | 447 |
-| `profs firme` / `profs firm` | 255 |
-| `propes firme` / `propes firmes` | 209 |
-| `profirme` / `profirm` | 59 |
-| `profilme` / `profilmes` | 28 |
-| `prop firm` / `prop firme` (spaced) | 22 |
-| `profilère(s)` / `profilière(s)` | 9 |
-| `multiprop firme`, `multipro firme` | 15 |
-| Long tail: `profilien`, `profilaires`, `profilums`, `profilité`, `propure firme`, `croque firme`, `propre ferme` | ~30 |
-
-All → `propfirm` / `propfirms` / `multipropfirm`. Note `propes` standing alone also
-means propfirms.
-
-### Instruments
-
-| Wrong | Correct | Occurrences |
-|---|---|---|
-| `Eurostox` | `Eurostoxx` | 221 |
-| `Euro Stock` / `euro stocks` | `Eurostoxx` | 142 |
-| `Eurostock` | `Eurostoxx` | 18 |
-| `Bound` | `Bund` | 205 |
-| `tiques` | `ticks` | 8 |
-| `renge` | `range` | 2 |
-
-`Bound` → `Bund` only in an instrument context. Plain `bond` (62 occ.) is the
-legitimate French noun for a bounce — leave it.
-
-### `carnet d'ordre` drift
-
-62 phonetic variants: `carnet d'or` (30), `carnet d'accord` (16), `carnet d'ordes`
-(5), `carnet d'eau` (4), `carnet d'orne` (3), `carnet d'arbre(s)` (3),
-`carnet d'orgue` (1). All → `carnet d'ordre(s)`.
-
-### Brands and platforms
-
-| Wrong | Correct | Occurrences |
-|---|---|---|
-| `Lucide` | `Lucid` | 167 |
-| `Xellos` / `Zelos` / `Zellos` / `Xelo` | `Xelos` | 163 |
-| `Bullnox` / `Boodlox` | `Bulenox` | 75 |
-| `discorde` | `Discord` | 43 |
-| `Tradify` / `Tradesy` | `Tradeify` | 25 |
-| `click size` / `clic size` / `clipsize` | `clip size` | 23 |
-| `rythmique` / `Rhythmic` | `Rithmic` | 23 |
-| `Funden Next` / `Fundenext` | `FundedNext` | 6 |
-| `edging` | `hedging` | 5 |
-| `Tradervate` | `Tradovate` | 4 |
-| `Cantover` / `Quantover` | `Quantower` | 3 |
-| `Motivwave` | `MotiveWave` | 1 |
-| `bidet ask` | `bid et ask` | 1 |
-| `URSAF` | `URSSAF` | 7 |
-
-`rythmique` is only wrong when naming the data feed — the French adjective is
-legitimate elsewhere. Same caution for `discorde`.
-
-**Already correct, never touch:** Nasdaq, Russell, DAX, Apex, TPT, Tradovate,
-TradingView, MetaTrader, FTMO, MyFundedFuture, ATAS, CME, Eurex, Bollinger,
-Fibonacci, VWAP, FOMC, NFP, CPI, PMI, AMF — zero faulty variants observed.
-
-## 4. Segment-boundary duplication
+## 3. Segment-boundary duplication
 
 The last word of segment N repeats as the first word of segment N+1: **4267
 occurrences over 330,352 boundaries (1.29%)**, plus 1402 three-word overlaps.
 
-Top offenders: `merci` 391, `ça` 230, `ok` 229, `là` 165, `c'est` 130.
+Top offenders are short, high-frequency words (`merci` 391, `ça` 230, `ok` 229,
+`là` 165, `c'est` 130).
 
 ```
 seg N   : "...ça va être le premier cours sur la fiscalité"
-seg N+1 : "fiscalité du trader propfirm"
+seg N+1 : "fiscalité du contribuable"
 ```
 
 **This leaks into the `text` field**, which is the concatenation. Any reconstruction
 from `segments` must dedupe boundaries.
 
-## 5. Punctuation — bimodal, not uniform
+The mirror case: a word split across two blocks appears truncated in one and
+duplicated in the other. Merge it into the block where the word begins.
+
+## 4. Punctuation — bimodal, not uniform
 
 Corpus median is a healthy 22 words per period, but the distribution is bimodal:
 
@@ -150,11 +105,27 @@ Question marks are structurally under-generated: 9313 interrogative markers
 Only 21.4% of segments end in `.`, `!` or `?`. Mean segment length is 5.5 words, so
 segment boundaries are **not** sentence boundaries — never punctuate by segment.
 
-## 6. Capitalization
+Languages with paired marks need the opening `¿` and `¡`, which Whisper almost
+never emits.
+
+## 5. Capitalization
 
 16 files are entirely lowercase (<0.1% uppercase, corpus median 1.55%); 43 sit under
 0.5%. **12 of those 16 also have zero periods** — the two defects are correlated and
 signal the same degraded decode. Check both together, and restore both together.
+
+## 6. Diacritics
+
+Restore from grammatical context, never by blind search-and-replace. In French the
+measured gain is small (§10) — other languages lose accents far more often.
+
+**Spanish**: `como`/`cómo` (question), `esta`/`está` (verb), `mas`/`más` (quantity),
+`si`/`sí` (yes), `el`/`él` (pronoun), `que`/`qué` (question), `tambien`/`también`,
+`informacion`/`información`.
+
+**Portuguese**: `nao`/`não`, `voce`/`você`, `esta`/`está`, `sao`/`são`, `ja`/`já`.
+
+**German**: umlauts and `ß` may come back as `ae/oe/ue/ss`.
 
 ## 7. Hyphenation and compounds
 
@@ -169,13 +140,14 @@ Both spellings coexist at scale — this is normalization, not transcription err
 | `celle-là` | `celle là` | 204 / 169 |
 | `au-dessus` | `au dessus` | 172 / 193 |
 | `là-haut` | `là haut` | 230 / 80 |
-| `Topstep` | `Top Step` | 29 / 363 |
-| `TradingView` | `Trading View` | 53 / 40 |
 | `micro-entreprise` | `micro entreprise` | 27 / 10 |
 | `auto-entrepreneur` | `auto entrepreneur` | 4 / 2 |
 
 `peut-être` (1825) vs `peut être` (484): hyphenate only the adverb. `peut être` is
 correct when it's the verb (`ça peut être utile`).
+
+Multi-word brand names follow the same pattern — the model splits or joins them
+inconsistently. That is a glossary matter, not a rule.
 
 ## 8. Number and time formatting — inconsistent, not wrong
 
@@ -183,42 +155,47 @@ Pick one style per document; the corpus mixes all of them.
 
 - Thousands: spaced `15 000` (1926) vs glued `26400` (3339)
 - Shorthand: `25k`, `50k` (909)
-- Decimals use the French comma: `80,25` (1684)
+- Decimals use the French comma: `80,25` (1684) — English uses a point, and the
+  model follows the detected language, not the speaker
 - Times: `15h30` (934), `15h` (605), `15 heures` (370) — `15:30` never appears
 - Percent: `15%` (1564) vs `15 pour cent` (3)
 - Currency: `dollars` (814) vs `$` (346); `euros` (372) vs `€` (23)
-- `balles` (846) is slang for euros — keep it, it's register, not error
+- Locale spacing: French puts a space before `%`, `€`, `:`, `?`, `!`
+- Slang currency terms (`balles`, `bucks`, `quid`) are register, not error — keep
 
-## 9. Do NOT correct these
+## 9. Language detection
+
+Whisper detects the language from the first ~30 seconds. Consequences:
+
+- Audio that opens with music, an intro jingle, or a foreign greeting can be
+  detected wrong, and the whole file is then transcribed — or translated — into
+  that language. Re-run with `-l <code>`; no post-processing fixes it.
+- Code-switching mid-file is transcribed in the detected language, sometimes
+  phonetically.
+
+## 10. Do NOT correct these
 
 Each was tested against the corpus and found empty or already correct. Writing rules
 for them costs tokens and causes regressions.
 
 **Phonetized anglicisms — essentially nonexistent.** `large-v3` spells recognized
-English terms correctly: `scalping` 844, `drawdown` 291, `stop loss` 305,
-`payout` 629, `challenge` 1550, `clip size` 560, `money management` 131. Tested and
-absent: `skalping`, `nasdak`, `bolinger`, `drawdawn`, `poolback`, `brekout`,
-`stoploss`, `taïm frame`. Only *brand names* (§3) fail.
+English terms correctly, including technical vocabulary borrowed into French.
+Tested and absent: phonetic manglings of common loanwords. Only *proper nouns*
+fail — brands, products, people, platforms.
 
 **Disfluencies — already stripped.** `euh` appears 296 times in 1.8M words (1 per
-6145). Nothing to remove.
+6145). Nothing to remove. Strip fillers only if the user explicitly asks; they are
+part of the record.
 
 **Spelled-out numbers — absent.** `mille` 142, `vingt` 7, `trente` 2;
 "quinze heures" and "dix pour cent" appear **zero** times.
-
-**Terms with zero occurrences** — do not add rules: `backtest`, `breakout`,
-`win rate`, `PFU`, `prélèvement forfaitaire`, `MT4`/`MT5`, `MACD`, `Jigsaw`.
-
-**ICT/SMC lexicon — absent.** `OTE` 0, `killzone` 0, `BOS` 0, `CHOCH` 0,
-`smart money` 0, `London session` 0. This domain uses proprietary vocabulary
-instead (§10).
 
 **Given names — already stable.** No phonetic variants found across 40+ names. Only
 accent/spelling normalization applies: `Erwan`/`Erwann`, `Loïc`/`Loic`,
 `Etienne`/`Étienne`.
 
-**Tax vocabulary — correct.** `BNC`, `micro-entreprise`, `flat tax`, `TVA`, `SASU`
-all transcribe cleanly.
+**Terms that never occur in your corpus** — verify before writing any rule. Half of
+a plausible-looking rule list typically has zero matches.
 
 ### French homophones — deliberately minimal
 
@@ -237,18 +214,16 @@ Context-dependent, verify each before changing: `ce`→`se` before a pronominal 
 Tested with **zero** detectable errors — skip entirely: `sont`→`son`, `ces`→`ses`,
 `peut`→`peu`, `sur`→`sûr`. (`du`→`dû`: 2 occurrences, not worth a rule.)
 
-## 10. Proprietary terms — protect from "correction"
+English and Spanish were not measured here; the same discipline applies — verify
+frequency on your own output before writing a rule.
 
-House vocabulary a naive corrector would rewrite. These are correct as-is:
+## 11. Speaker attribution
 
-`matelas` (4593), `amplitude` (3233), `dynamique` (3114), `carnet` (3441),
-`retracement` (1168), `bougie` (1106), `vol` = volatilité (1097), `mèche` (511),
-`liquidité` (304), `craquage`, `carnet lourd` / `carnet léger`, `zone de pierre`,
-`branche de l'arbre`, `clip size`, `payout`, `PA` = compte financé, `TPT Pro`.
+Whisper does not do diarization: it produces one undifferentiated stream. Insert
+`[Name]:` markers only when speakers are clearly identifiable from context, and
+never guess who is talking. Real speaker separation requires a diarization tool.
 
-`Michigan` (58) is legitimate — the consumer confidence index, not a loop artifact.
-
-## 11. SRT editing rules
+## 12. SRT editing rules
 
 When editing `.srt` output:
 

@@ -44,17 +44,18 @@ Apply in this order, highest volume first:
    isolated `Merci.`) emitted over silent stretches. Found in 73 of 227 files.
 2. **Collapse decoder repetition loops** — detect by run length (≥5 identical
    consecutive tokens, pinning at 221–223), never by vocabulary.
-3. **Fix domain vocabulary** — brand and instrument names are where Whisper fails,
-   not general anglicisms.
+3. **Fix proper nouns** — brand, product and person names are where Whisper fails,
+   not general anglicisms. Ask the user for a glossary rather than guessing.
 4. **Dedupe segment boundaries** — 1.29% of boundaries repeat a word, and this
    leaks into the concatenated `text` field.
 5. **Re-punctuate and recapitalize only where measured as degraded** — most files
    are fine; a minority have zero periods and no uppercase at all.
-6. **Normalize hyphenation and number formats** for consistency.
+6. **Restore diacritics and normalize hyphenation and number formats**.
 
-Do NOT strip filler words (Whisper already removes them: 296 `euh` per 1.8M words)
-and do NOT apply broad homophone rules (>90% false positives). Insert
-`[Speaker Name]:` markers only when speakers are clearly identifiable.
+Fix form, never content. Do NOT strip filler words (Whisper already removes them:
+296 `euh` per 1.8M words) and do NOT apply broad homophone rules (>90% false
+positives). Mark unintelligible passages `[inaudible]` rather than inventing, and
+insert `[Speaker Name]:` markers only when speakers are clearly identifiable.
 
 When editing `.srt`, preserve timestamps, sequence numbers and block count.
 
@@ -76,6 +77,11 @@ vox channel "https://www.youtube.com/@ChannelName" --years 2025 --summarizer non
 ```bash
 vox schema transcribe
 vox schema init
+vox schema models
+
+# Which models can I pass to --model?
+vox models --format json
+vox models -b openai --format json
 ```
 
 ## Commands
@@ -87,6 +93,7 @@ vox schema init
 | `vox channel <url>` | Batch transcribe a YouTube channel |
 | `vox init [-m MODEL] [-l LANG]` | Download Whisper model + check deps |
 | `vox doctor` | Check dependencies health |
+| `vox models [-b BACKEND]` | List models available per backend |
 | `vox schema [COMMAND]` | JSON schema for agent introspection |
 | `vox --version` | Print the installed version |
 

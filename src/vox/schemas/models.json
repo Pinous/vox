@@ -1,0 +1,26 @@
+{
+  "name": "models",
+  "description": "List the transcription models available for each backend",
+  "arguments": {},
+  "options": {
+    "backend": {
+      "type": "string",
+      "enum": ["local", "openai"],
+      "description": "Restrict the listing to a single backend (default: all backends)"
+    },
+    "format": {
+      "type": "string",
+      "enum": ["json", "table"],
+      "description": "Output format (auto-detected: json when piped, table when TTY)"
+    }
+  },
+  "output": {
+    "local": "Model names accepted by --model on the local MLX backend",
+    "openai": "Model names accepted by --model on the OpenAI cloud backend"
+  },
+  "examples": [
+    "vox models",
+    "vox models -b openai --format json"
+  ],
+  "dependencies": []
+}

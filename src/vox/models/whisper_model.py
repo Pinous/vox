@@ -20,6 +20,10 @@ class WhisperModel(Enum):
     def hf_repo(self) -> str:
         return self.value
 
+    @property
+    def cli_name(self) -> str:
+        return self.name.lower().replace("_", "-")
+
     @classmethod
     def from_string(cls, name: str) -> "WhisperModel":
         normalized = _normalize(name)
