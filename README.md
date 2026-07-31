@@ -67,6 +67,10 @@ vox doctor
 # Download a model ahead of time
 vox init -m small
 
+# List available models per backend
+vox models
+vox models -b openai --format json
+
 # Get API schema (for AI agents)
 vox schema transcribe
 ```
@@ -80,6 +84,7 @@ vox schema transcribe
 | `vox channel <url>` | Batch transcribe a YouTube channel |
 | `vox init [-m MODEL]` | Download Whisper model |
 | `vox doctor` | Check dependency health |
+| `vox models [-b BACKEND]` | List transcription models per backend |
 | `vox schema [COMMAND]` | JSON schema for agent introspection |
 
 ## Models
@@ -139,7 +144,7 @@ Input (URL or file)
 
 ```bash
 uv sync
-uv run pytest              # Run tests (107 tests)
+uv run pytest              # Run tests (159 tests)
 uv run ruff check --fix    # Lint
 uv run ruff format         # Format
 uv run ty check            # Type check

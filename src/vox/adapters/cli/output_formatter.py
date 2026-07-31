@@ -5,7 +5,7 @@ from typing import Any
 
 
 def format_output(data: Any, fields: str | None, fmt: str | None) -> str:
-    output_format = _resolve_format(fmt)
+    output_format = resolve_format(fmt)
     as_dict = asdict(data) if hasattr(data, "__dataclass_fields__") else data
     filtered = _filter_fields(as_dict, fields)
     if output_format == "json":
@@ -13,7 +13,7 @@ def format_output(data: Any, fields: str | None, fmt: str | None) -> str:
     return _format_table(filtered)
 
 
-def _resolve_format(fmt: str | None) -> str:
+def resolve_format(fmt: str | None) -> str:
     if fmt:
         return fmt
     return "json" if not sys.stdout.isatty() else "table"

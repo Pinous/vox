@@ -40,6 +40,21 @@ class TestWhisperModelFromString:
         assert result == WhisperModel.LARGE_V3_TURBO
 
 
+class TestWhisperModelCliName:
+    def test_cli_name_when_small_then_small(self):
+        assert WhisperModel.SMALL.cli_name == "small"
+
+    def test_cli_name_when_large_v3_then_dashed(self):
+        assert WhisperModel.LARGE_V3.cli_name == "large-v3"
+
+    def test_cli_name_when_large_v3_turbo_then_dashed(self):
+        assert WhisperModel.LARGE_V3_TURBO.cli_name == "large-v3-turbo"
+
+    def test_cli_name_when_round_tripped_then_resolves_to_same_model(self):
+        for model in WhisperModel:
+            assert WhisperModel.from_string(model.cli_name) == model
+
+
 class TestWhisperModelHfRepo:
     def test_hf_repo_when_small_then_correct_path(self):
         assert WhisperModel.SMALL.hf_repo == "mlx-community/whisper-small-mlx"
