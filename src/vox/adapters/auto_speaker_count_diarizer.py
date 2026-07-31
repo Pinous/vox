@@ -1,14 +1,13 @@
 from pathlib import Path
 
-from vox.models.clustering import cluster_embeddings
 from vox.models.speaker_count import DEFAULT_MAX_SPEAKERS, estimate_speaker_count
 from vox.models.speaker_turn import SpeakerTurn
-from vox.models.turn_relabeling import merge_labels, relabel_turns
-from vox.models.turn_selection import longest_turn_per_speaker
+from vox.models.turn_sampling import longest_turns
 from vox.ports.diarizer import Diarizer
 from vox.ports.voice_print_extractor import VoicePrintExtractor
 
 OVERSEGMENTATION_THRESHOLD = 0.05
+SAMPLE_SIZE = 24
 
 
 class AutoSpeakerCountDiarizer:
@@ -17,10 +16,12 @@ class AutoSpeakerCountDiarizer:
         diarizer: Diarizer,
         extractor: VoicePrintExtractor,
         max_speakers: int = DEFAULT_MAX_SPEAKERS,
+        sample_size: int = SAMPLE_SIZE,
     ):
         self._diarizer = diarizer
         self._extractor = extractor
         self._max_speakers = max_speakers
+        self._sample_size = sample_size
 
     def diarize(
         self,
@@ -29,23 +30,19 @@ class AutoSpeakerCountDiarizer:
     ) -> tuple[SpeakerTurn, ...]:
         if num_speakers:
             return self._diarizer.diarize(audio_path, num_speakers)
-        turns = self._diarizer.diarize(audio_path, None)
-        longest = longest_turn_per_speaker(turns)
-        if len(longest) < 2:
-            return turns
-        return self._merge_over_segmented(turns, longest, audio_path)
+        probe = self._diarizer.diarize(audio_path, None)
+        sample = longest_turns(probe, self._sample_size)
+        if len(sample) < 2:
+            return probe
+        count = self._estimate_count(audio_path, sample)
+        return self._diarizer.diarize(audio_path, count)
 
-    def _merge_over_segmented(
+    def _estimate_count(
         self,
-        turns: tuple[SpeakerTurn, ...],
-        longest: dict[str, SpeakerTurn],
         audio_path: Path,
-    ) -> tuple[SpeakerTurn, ...]:
-        labels = list(longest)
+        sample: tuple[SpeakerTurn, ...],
+    ) -> int:
         embeddings = [
-            self._extractor.extract(audio_path, longest[a].start, longest[a].end)
-            for a in labels
+            self._extractor.extract(audio_path, t.start, t.end) for t in sample
         ]
-        count = estimate_speaker_count(embeddings, self._max_speakers)
-        groups = cluster_embeddings(embeddings, count)
-        return relabel_turns(turns, merge_labels(labels, groups))
+        return estimate_speaker_count(embeddings, self._max_speakers)

@@ -14,8 +14,16 @@ _THREE_LABELS = (
 )
 
 
-def _labels(turns) -> list[str]:
-    return [t.speaker for t in turns]
+class CountingDiarizer:
+    """Records every call and replays a canned probe, then a final pass."""
+
+    def __init__(self, probe):
+        self._probe = probe
+        self.calls: list[int | None] = []
+
+    def diarize(self, audio_path, num_speakers):
+        self.calls.append(num_speakers)
+        return self._probe
 
 
 class TestAutoSpeakerCountDiarizer:
@@ -35,25 +43,14 @@ class TestAutoSpeakerCountDiarizer:
 
         assert extractor.extract_calls == []
 
-    def test_diarize_when_single_label_then_returned_as_is(self):
+    def test_diarize_when_single_turn_then_probe_returned_as_is(self):
         turns = (SpeakerTurn(start=0.0, end=10.0, speaker="SPEAKER_00"),)
         auto = AutoSpeakerCountDiarizer(FakeDiarizer(turns), FakeVoicePrintExtractor())
 
         assert auto.diarize(_AUDIO, None) == turns
 
-    def test_diarize_when_labels_are_distinct_voices_then_all_kept(self):
-        extractor = FakeVoicePrintExtractor(
-            {
-                (0.0, 10.0): (1.0, 0.0, 0.0),
-                (10.0, 20.0): (0.0, 1.0, 0.0),
-                (20.0, 30.0): (0.0, 0.0, 1.0),
-            }
-        )
-        auto = AutoSpeakerCountDiarizer(FakeDiarizer(_THREE_LABELS), extractor)
-
-        assert len(set(_labels(auto.diarize(_AUDIO, None)))) == 3
-
-    def test_diarize_when_two_labels_are_the_same_voice_then_merged(self):
+    def test_diarize_when_auto_then_reruns_with_the_estimated_count(self):
+        inner = CountingDiarizer(_THREE_LABELS)
         extractor = FakeVoicePrintExtractor(
             {
                 (0.0, 10.0): (1.0, 0.0),
@@ -61,15 +58,14 @@ class TestAutoSpeakerCountDiarizer:
                 (20.0, 30.0): (0.99, 0.01),
             }
         )
-        auto = AutoSpeakerCountDiarizer(FakeDiarizer(_THREE_LABELS), extractor)
+        auto = AutoSpeakerCountDiarizer(inner, extractor)
 
-        result = _labels(auto.diarize(_AUDIO, None))
+        auto.diarize(_AUDIO, None)
 
-        assert len(set(result)) == 2
-        assert result[0] == result[2]
-        assert result[0] != result[1]
+        assert inner.calls == [None, 2]
 
-    def test_diarize_when_all_labels_same_voice_then_collapses_to_one(self):
+    def test_diarize_when_all_one_voice_then_final_pass_asks_for_one(self):
+        inner = CountingDiarizer(_THREE_LABELS)
         extractor = FakeVoicePrintExtractor(
             {
                 (0.0, 10.0): (1.0, 0.0),
@@ -77,21 +73,40 @@ class TestAutoSpeakerCountDiarizer:
                 (20.0, 30.0): (0.998, 0.02),
             }
         )
-        auto = AutoSpeakerCountDiarizer(FakeDiarizer(_THREE_LABELS), extractor)
-
-        assert len(set(_labels(auto.diarize(_AUDIO, None)))) == 1
-
-    def test_diarize_when_auto_then_uses_longest_turn_of_each_label(self):
-        extractor = FakeVoicePrintExtractor()
-        turns = (
-            SpeakerTurn(start=0.0, end=2.0, speaker="SPEAKER_00"),
-            SpeakerTurn(start=5.0, end=30.0, speaker="SPEAKER_00"),
-            SpeakerTurn(start=30.0, end=40.0, speaker="SPEAKER_01"),
-        )
-        auto = AutoSpeakerCountDiarizer(FakeDiarizer(turns), extractor)
+        auto = AutoSpeakerCountDiarizer(inner, extractor)
 
         auto.diarize(_AUDIO, None)
 
-        spans = [call[1:] for call in extractor.extract_calls]
-        assert (5.0, 30.0) in spans
-        assert (0.0, 2.0) not in spans
+        assert inner.calls == [None, 1]
+
+    def test_diarize_when_many_labels_then_sample_is_capped(self):
+        many = tuple(
+            SpeakerTurn(start=float(i), end=float(i) + 1, speaker=f"SPEAKER_{i:03d}")
+            for i in range(300)
+        )
+        extractor = FakeVoicePrintExtractor()
+        auto = AutoSpeakerCountDiarizer(
+            CountingDiarizer(many), extractor, sample_size=24
+        )
+
+        auto.diarize(_AUDIO, None)
+
+        assert len(extractor.extract_calls) == 24
+
+    def test_diarize_when_auto_then_samples_the_longest_turns(self):
+        turns = (
+            SpeakerTurn(start=0.0, end=1.0, speaker="SPEAKER_00"),
+            SpeakerTurn(start=10.0, end=40.0, speaker="SPEAKER_01"),
+            SpeakerTurn(start=50.0, end=90.0, speaker="SPEAKER_02"),
+        )
+        extractor = FakeVoicePrintExtractor()
+        auto = AutoSpeakerCountDiarizer(
+            CountingDiarizer(turns), extractor, sample_size=2
+        )
+
+        auto.diarize(_AUDIO, None)
+
+        spans = [c[1:] for c in extractor.extract_calls]
+        assert (50.0, 90.0) in spans
+        assert (10.0, 40.0) in spans
+        assert (0.0, 1.0) not in spans
