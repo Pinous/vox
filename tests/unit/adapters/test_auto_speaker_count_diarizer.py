@@ -110,3 +110,39 @@ class TestAutoSpeakerCountDiarizer:
         assert (50.0, 90.0) in spans
         assert (10.0, 40.0) in spans
         assert (0.0, 1.0) not in spans
+
+
+class TestSampleDiversity:
+    def test_diarize_when_one_label_dominates_then_sample_covers_other_labels(self):
+        # SPEAKER_00 owns the 5 longest turns; SPEAKER_01 speaks briefly once.
+        turns = (
+            *(
+                SpeakerTurn(start=i * 100.0, end=i * 100.0 + 60, speaker="SPEAKER_00")
+                for i in range(5)
+            ),
+            SpeakerTurn(start=900.0, end=905.0, speaker="SPEAKER_01"),
+        )
+        extractor = FakeVoicePrintExtractor()
+        auto = AutoSpeakerCountDiarizer(
+            CountingDiarizer(turns), extractor, sample_size=3
+        )
+
+        auto.diarize(_AUDIO, None)
+
+        spans = [c[1:] for c in extractor.extract_calls]
+        assert (900.0, 905.0) in spans, "the quiet speaker must be sampled"
+
+    def test_diarize_when_sampling_then_one_turn_per_label(self):
+        turns = (
+            *(
+                SpeakerTurn(start=i * 100.0, end=i * 100.0 + 60, speaker="SPEAKER_00")
+                for i in range(5)
+            ),
+            SpeakerTurn(start=900.0, end=960.0, speaker="SPEAKER_01"),
+        )
+        extractor = FakeVoicePrintExtractor()
+        auto = AutoSpeakerCountDiarizer(CountingDiarizer(turns), extractor)
+
+        auto.diarize(_AUDIO, None)
+
+        assert len(extractor.extract_calls) == 2

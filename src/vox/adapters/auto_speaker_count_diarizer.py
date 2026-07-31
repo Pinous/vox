@@ -3,6 +3,7 @@ from pathlib import Path
 from vox.models.speaker_count import DEFAULT_MAX_SPEAKERS, estimate_speaker_count
 from vox.models.speaker_turn import SpeakerTurn
 from vox.models.turn_sampling import longest_turns
+from vox.models.turn_selection import longest_turn_per_speaker
 from vox.ports.diarizer import Diarizer
 from vox.ports.voice_print_extractor import VoicePrintExtractor
 
@@ -31,7 +32,8 @@ class AutoSpeakerCountDiarizer:
         if num_speakers:
             return self._diarizer.diarize(audio_path, num_speakers)
         probe = self._diarizer.diarize(audio_path, None)
-        sample = longest_turns(probe, self._sample_size)
+        one_per_label = tuple(longest_turn_per_speaker(probe).values())
+        sample = longest_turns(one_per_label, self._sample_size)
         if len(sample) < 2:
             return probe
         count = self._estimate_count(audio_path, sample)
