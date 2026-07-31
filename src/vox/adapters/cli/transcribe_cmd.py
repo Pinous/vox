@@ -3,6 +3,10 @@ import sys
 
 import click
 
+from vox.adapters.auto_speaker_count_diarizer import (
+    OVERSEGMENTATION_THRESHOLD,
+    AutoSpeakerCountDiarizer,
+)
 from vox.adapters.cli.open_hint import format_open_hint
 from vox.adapters.cli.output_formatter import format_output
 from vox.adapters.click_progress import ClickProgressReporter
@@ -58,7 +62,7 @@ from vox.use_cases.transcribe import TranscribeRequest, TranscribeUseCase
     "--speakers",
     type=int,
     default=None,
-    help="Known speaker count (auto-detected if omitted)",
+    help="Force the speaker count (detected automatically if omitted)",
 )
 def transcribe(
     source,
@@ -143,7 +147,10 @@ def _build_use_case(
         transcriber=_build_transcriber(backend),
         file_writer=DiskFileWriter(),
         progress=ClickProgressReporter(),
-        diarizer=SherpaDiarizer(),
+        diarizer=AutoSpeakerCountDiarizer(
+            SherpaDiarizer(clustering_threshold=OVERSEGMENTATION_THRESHOLD),
+            SherpaVoicePrintExtractor(),
+        ),
         speaker_identifier=IdentifySpeakersUseCase(
             extractor=SherpaVoicePrintExtractor(),
             store=JsonVoicePrintStore(),

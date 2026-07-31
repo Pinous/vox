@@ -65,7 +65,7 @@
     },
     "speakers": {
       "type": "integer",
-      "description": "Known speaker count. Auto-detected when omitted, but passing the exact count is markedly more reliable."
+      "description": "Force the speaker count. Detected automatically when omitted, by over-segmenting then merging labels on a silhouette score; pass it only to override a wrong estimate."
     },
     "no-identify": {
       "type": "boolean",
