@@ -38,6 +38,7 @@ from vox.use_cases.transcribe import TranscribeUseCase
 @click.option("--remote-folder", default="")
 @click.option("--no-cleanup", is_flag=True, help="Keep audio files")
 @click.option("--no-cookies", is_flag=True, help="Don't use browser cookies")
+@click.option("--browser", default="chrome", help="Browser to read cookies from")
 @click.option("--sleep", default=1, help="Seconds between requests")
 @click.option("--dry-run", is_flag=True)
 @click.option("--limit", default=0, help="Max videos to process (0=all)")
@@ -59,6 +60,7 @@ def channel(
     remote_folder,
     no_cleanup,
     no_cookies,
+    browser,
     sleep,
     dry_run,
     limit,
@@ -67,7 +69,7 @@ def channel(
 ):
     parsed_years = _parse_years(years)
     use_cookies = not no_cookies
-    use_case = _build_use_case(summarizer, use_cookies, sleep)
+    use_case = _build_use_case(summarizer, use_cookies, sleep, browser)
     request = BatchTranscribeRequest(
         channel_url=url,
         years=parsed_years,
@@ -126,9 +128,10 @@ def _build_use_case(
     summarizer_choice: str,
     use_cookies: bool,
     sleep_interval: int,
+    browser: str,
 ) -> BatchTranscribeUseCase:
     progress = ClickProgressReporter()
-    downloader = YtdlpDownloader(use_cookies=use_cookies)
+    downloader = YtdlpDownloader(use_cookies=use_cookies, browser=browser)
     transcribe = TranscribeUseCase(
         downloader=downloader,
         audio_cleaner=FfmpegAudioCleaner(),
@@ -140,6 +143,7 @@ def _build_use_case(
         channel_lister=YtdlpChannelLister(
             use_cookies=use_cookies,
             sleep_interval=sleep_interval,
+            browser=browser,
         ),
         transcribe=transcribe,
         file_uploader=RcloneUploader(),

@@ -36,6 +36,8 @@ from vox.use_cases.transcribe import TranscribeRequest, TranscribeUseCase
 @click.option("--no-clean", is_flag=True, help="Skip audio cleaning")
 @click.option("--json", "json_payload", default=None, help="Raw JSON payload")
 @click.option("--no-download", is_flag=True, help="Skip yt-dlp (local files only)")
+@click.option("--no-cookies", is_flag=True, help="Don't use browser cookies")
+@click.option("--browser", default="chrome", help="Browser to read cookies from")
 @click.option(
     "-b",
     "--backend",
@@ -54,6 +56,8 @@ def transcribe(
     no_clean,
     json_payload,
     no_download,
+    no_cookies,
+    browser,
     backend,
 ):
     source, language, model = _apply_json_overrides(
@@ -66,7 +70,7 @@ def transcribe(
     except VoxError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
-    use_case = _build_use_case(backend_enum)
+    use_case = _build_use_case(backend_enum, not no_cookies, browser)
     request = TranscribeRequest(
         source=source,
         language=language,
@@ -106,9 +110,13 @@ def _apply_json_overrides(json_payload, source, language, model):
     )
 
 
-def _build_use_case(backend: TranscriptionBackend) -> TranscribeUseCase:
+def _build_use_case(
+    backend: TranscriptionBackend,
+    use_cookies: bool,
+    browser: str,
+) -> TranscribeUseCase:
     return TranscribeUseCase(
-        downloader=YtdlpDownloader(),
+        downloader=YtdlpDownloader(use_cookies=use_cookies, browser=browser),
         audio_cleaner=FfmpegAudioCleaner(),
         transcriber=_build_transcriber(backend),
         file_writer=DiskFileWriter(),

@@ -33,20 +33,31 @@ vox transcribe audio.wav --fields text --format json
 ```
 
 ### 3. Post-process the transcript
-Read [references/whisper-fixes.md](references/whisper-fixes.md) before editing a
-raw transcript — it lists the mistakes Whisper actually makes and how to fix
-them without altering the record.
 
-The high-value passes, in order:
-1. Delete hallucinated blocks on silence/music ("Sous-titres réalisés par...",
-   "Thanks for watching!") and repetition loops
-2. Restore sentence boundaries, capitalization, and diacritics
-3. Fix homophones, numbers, units, and acronyms
-4. Merge words truncated across segment boundaries
+Read `references/whisper-fixes.md` before correcting anything. It ranks every
+correction by measured frequency over a 1.8M-word French corpus, and — just as
+importantly — lists the categories that look obvious but are empty in practice.
 
-Fix form, never content: keep timestamps and SRT structure intact, ask the user
-for a glossary rather than guessing names, and mark unintelligible passages
-`[inaudible]` instead of inventing.
+Apply in this order, highest volume first:
+
+1. **Delete silence hallucinations** — subtitling boilerplate (`Sous-titrage ...`,
+   isolated `Merci.`) emitted over silent stretches. Found in 73 of 227 files.
+2. **Collapse decoder repetition loops** — detect by run length (≥5 identical
+   consecutive tokens, pinning at 221–223), never by vocabulary.
+3. **Fix proper nouns** — brand, product and person names are where Whisper fails,
+   not general anglicisms. Ask the user for a glossary rather than guessing.
+4. **Dedupe segment boundaries** — 1.29% of boundaries repeat a word, and this
+   leaks into the concatenated `text` field.
+5. **Re-punctuate and recapitalize only where measured as degraded** — most files
+   are fine; a minority have zero periods and no uppercase at all.
+6. **Restore diacritics and normalize hyphenation and number formats**.
+
+Fix form, never content. Do NOT strip filler words (Whisper already removes them:
+296 `euh` per 1.8M words) and do NOT apply broad homophone rules (>90% false
+positives). Mark unintelligible passages `[inaudible]` rather than inventing, and
+insert `[Speaker Name]:` markers only when speakers are clearly identifiable.
+
+When editing `.srt`, preserve timestamps, sequence numbers and block count.
 
 ### 4. Batch transcribe a channel
 ```bash
@@ -84,6 +95,7 @@ vox models -b openai --format json
 | `vox doctor` | Check dependencies health |
 | `vox models [-b BACKEND]` | List models available per backend |
 | `vox schema [COMMAND]` | JSON schema for agent introspection |
+| `vox --version` | Print the installed version |
 
 ## Transcribe Flags
 
@@ -98,6 +110,8 @@ vox models -b openai --format json
 | `--format` | string | auto | json (piped) or table (TTY) |
 | `--no-clean` | boolean | false | Skip ffmpeg audio cleaning |
 | `--no-download` | boolean | false | Skip yt-dlp (local files only) |
+| `--no-cookies` | boolean | false | Don't send browser cookies to yt-dlp |
+| `--browser` | string | chrome | Browser to read cookies from (safari, firefox, edge, brave) |
 | `-b, --backend` | string | local | local (MLX) or openai (cloud API, requires OPENAI_API_KEY) |
 | `--json` | string | - | Raw JSON payload: {"input", "language", "model"} |
 
@@ -114,6 +128,7 @@ vox models -b openai --format json
 | `--remote-folder` | string | "" | Remote folder path |
 | `--no-cleanup` | boolean | false | Keep audio files after upload |
 | `--no-cookies` | boolean | false | Don't use browser cookies for yt-dlp |
+| `--browser` | string | chrome | Browser to read cookies from (safari, firefox, edge, brave) |
 | `--sleep` | int | 1 | Seconds between requests |
 | `--limit` | int | 0 | Max videos to process (0=all) |
 | `--dry-run` | boolean | false | Show execution plan without running |
@@ -161,6 +176,7 @@ Input (URL or file)
 - **Large files (>1hr)**: Whisper processes in segments. Use `--model tiny` for speed on very long files.
 - **Auto-detect language**: Detects from the first ~30 seconds. Specify `-l <code>` for multilingual audio where the primary language appears later.
 - **No internet**: If transcribing a local file, use `--no-download` to skip yt-dlp entirely.
+- **Authentication failures**: yt-dlp errors mentioning sign-in, private videos, bot checks or empty media responses come back with a remediation hint. Cookies are sent from Chrome by default — switch with `--browser firefox`, or disable with `--no-cookies` when the source is public and the cookie read fails.
 - **Model not downloaded**: Run `vox init -m <model>` first, or models auto-download on first use.
 
 ## Supported File Formats
