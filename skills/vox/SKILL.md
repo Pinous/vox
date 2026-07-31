@@ -33,32 +33,20 @@ vox transcribe audio.wav --fields text --format json
 ```
 
 ### 3. Post-process the transcript
-After receiving the raw transcript, fix common Whisper mistakes:
+Read [references/whisper-fixes.md](references/whisper-fixes.md) before editing a
+raw transcript — it lists the mistakes Whisper actually makes and how to fix
+them without altering the record.
 
-**Punctuation & Capitalization:**
-- Fix sentence boundaries and misplaced commas
-- Capitalize proper nouns and sentence starts
+The high-value passes, in order:
+1. Delete hallucinated blocks on silence/music ("Sous-titres réalisés par...",
+   "Thanks for watching!") and repetition loops
+2. Restore sentence boundaries, capitalization, and diacritics
+3. Fix homophones, numbers, units, and acronyms
+4. Merge words truncated across segment boundaries
 
-**Language-Specific Accents:**
-- Spanish: como→cómo, esta→está, mas→más
-- French: e→é, a→à, u→ù
-- Portuguese: a→ã, o→ão
-
-**Technical Terms:**
-- Fix domain-specific misspellings
-- Correct proper nouns (product names, people)
-
-**Repeated Phrases:**
-- Remove stutters and exact word duplicates at segment boundaries
-
-**Speaker Attribution:**
-- Insert `[Speaker Name]:` markers when identifiable
-
-**Filler Words:**
-- Remove um, uh, este, o sea, like, you know (if requested)
-
-**Timestamp Alignment:**
-- Preserve SRT structure when editing text
+Fix form, never content: keep timestamps and SRT structure intact, ask the user
+for a glossary rather than guessing names, and mark unintelligible passages
+`[inaudible]` instead of inventing.
 
 ### 4. Batch transcribe a channel
 ```bash
@@ -78,6 +66,11 @@ vox channel "https://www.youtube.com/@ChannelName" --years 2025 --summarizer non
 ```bash
 vox schema transcribe
 vox schema init
+vox schema models
+
+# Which models can I pass to --model?
+vox models --format json
+vox models -b openai --format json
 ```
 
 ## Commands
@@ -89,6 +82,7 @@ vox schema init
 | `vox channel <url>` | Batch transcribe a YouTube channel |
 | `vox init [-m MODEL] [-l LANG]` | Download Whisper model + check deps |
 | `vox doctor` | Check dependencies health |
+| `vox models [-b BACKEND]` | List models available per backend |
 | `vox schema [COMMAND]` | JSON schema for agent introspection |
 
 ## Transcribe Flags
