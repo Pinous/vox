@@ -47,7 +47,7 @@ class TranscribeFixture:
             "no_download": False,
             "dry_run": False,
             "diarize": False,
-            "identify": False,
+            "no_identify": False,
         }
         defaults.update(overrides)
         request = TranscribeRequest(**defaults)
@@ -292,35 +292,35 @@ class TestExecuteWhenDiarizeThenPreservesAudioTimeline:
 
 
 class TestExecuteWhenIdentifyThenRenamesSpeakers:
-    def test_execute_when_identify_then_labels_replaced_by_names(self):
+    def test_execute_when_voices_known_then_labels_replaced_without_any_flag(self):
         fix = TranscribeFixture()
         fix.speaker_identifier.mapping = {"SPEAKER_00": "Coco"}
 
-        fix.execute(diarize=True, identify=True)
+        fix.execute(diarize=True)
 
         written = fix.file_writer.json_written[0][0]
         assert written.segments[0].speaker == "Coco"
 
-    def test_execute_when_identify_disabled_then_labels_kept(self):
+    def test_execute_when_no_identify_then_labels_kept(self):
         fix = TranscribeFixture()
         fix.speaker_identifier.mapping = {"SPEAKER_00": "Coco"}
 
-        fix.execute(diarize=True, identify=False)
+        fix.execute(diarize=True, no_identify=True)
 
         written = fix.file_writer.json_written[0][0]
         assert written.segments[0].speaker == "SPEAKER_00"
 
-    def test_execute_when_identify_without_diarize_then_no_identification(self):
+    def test_execute_when_no_diarize_then_no_identification(self):
         fix = TranscribeFixture()
 
-        fix.execute(diarize=False, identify=True)
+        fix.execute(diarize=False)
 
         assert fix.speaker_identifier.called_with is None
 
     def test_execute_when_identify_then_receives_diarized_turns(self):
         fix = TranscribeFixture()
 
-        fix.execute(diarize=True, identify=True)
+        fix.execute(diarize=True)
 
         _path, turns = fix.speaker_identifier.called_with
         assert turns[0].speaker == "SPEAKER_00"

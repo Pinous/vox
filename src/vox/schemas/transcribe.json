@@ -67,10 +67,10 @@
       "type": "integer",
       "description": "Known speaker count. Auto-detected when omitted, but passing the exact count is markedly more reliable."
     },
-    "identify": {
+    "no-identify": {
       "type": "boolean",
       "default": false,
-      "description": "Replace SPEAKER_00 labels with real names, matched against voices registered via 'vox speakers add'. Requires diarize."
+      "description": "Keep raw SPEAKER_00 labels. By default, whenever voices have been registered via 'vox speakers add', matching speakers are renamed automatically."
     }
   },
   "output": {

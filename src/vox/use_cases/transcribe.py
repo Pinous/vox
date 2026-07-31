@@ -31,7 +31,7 @@ class TranscribeRequest:
     dry_run: bool = False
     output_stem: str = ""
     diarize: bool = False
-    identify: bool = False
+    no_identify: bool = False
     num_speakers: int | None = None
 
 
@@ -120,7 +120,7 @@ class TranscribeUseCase:
         return replace(result, segments=segments)
 
     def _maybe_identify(self, segments, turns, audio_path: Path, request):
-        if not request.identify or self._speaker_identifier is None:
+        if request.no_identify or self._speaker_identifier is None:
             return segments
         self._progress.update("Matching known voices")
         mapping = self._speaker_identifier.execute(audio_path, turns)

@@ -50,9 +50,9 @@ from vox.use_cases.transcribe import TranscribeRequest, TranscribeUseCase
 )
 @click.option("--diarize", is_flag=True, help="Identify speakers (who said what)")
 @click.option(
-    "--identify",
+    "--no-identify",
     is_flag=True,
-    help="Replace SPEAKER_xx by known names (see: vox speakers add)",
+    help="Keep SPEAKER_xx labels even when voices are known",
 )
 @click.option(
     "--speakers",
@@ -76,7 +76,7 @@ def transcribe(
     browser,
     backend,
     diarize,
-    identify,
+    no_identify,
     speakers,
 ):
     source, language, model = _apply_json_overrides(
@@ -100,7 +100,7 @@ def transcribe(
         no_download=no_download,
         dry_run=dry_run,
         diarize=diarize,
-        identify=identify,
+        no_identify=no_identify,
         num_speakers=speakers,
     )
     try:
